@@ -82,3 +82,4 @@ tmp_*
 # === Private notes / secrets ===
 6_agent/catatan/
 *.txt
+!requirements.txt
