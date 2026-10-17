@@ -743,7 +743,7 @@ async memory() {
       document.getElementById('testNotificationBtn').onclick = () => {
         if ('Notification' in window) {
           Notification.requestPermission().then(p => {
-            if (p === 'granted') new Notification('Astrix AI', { body: 'Test berhasil! 🎉' });
+            if (p === 'granted') new Notification('Astro AI', { body: 'Test berhasil! 🎉' });
           });
         }
       };

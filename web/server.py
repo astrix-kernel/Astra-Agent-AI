@@ -1068,7 +1068,7 @@ async def get_system_info():
         ram_total = mem.total / (1024**3)
         ram_used = (mem.total - mem.available) / (1024**3)
         ram_pct = mem.percent
-        uptime_sec = time.time() - psutil.boot_time()
+        uptime_sec = time.time() - psutil.Process().create_time()
     except ImportError:
         # No psutil — per-OS fallback
         if os_name == "Linux":
