@@ -1,14 +1,14 @@
 import re
 
-# 1. Patch Frontend (index.html) biar ngedeteksi /goal
+# 1. Patch Frontend (index.html) to detect /goal
 html_path = "web/static/index.html"
 with open(html_path, "r") as f:
     html = f.read()
 
-# Cari fungsi sendMessage, tambahin logic /goal
+# Find the sendMessage function, add /goal logic
 if "if (text.startsWith('/goal '))" not in html:
-    # Kita suntikin logika deteksi /goal sebelum kirim ke websocket
-    # (Sesuaikan dengan nama variabel input di file lo, biasanya `input.value` atau `msg`)
+    # Inject the /goal detection logic before sending to websocket
+    # (Adjust with the input variable name in your file, usually `input.value` or `msg`)
     target_script = "async function sendMessage()"
     if target_script in html:
         insert_code = """async function sendMessage() {
@@ -16,16 +16,16 @@ if "if (text.startsWith('/goal '))" not in html:
     if (!input || !input.value.trim()) return;
     let text = input.value.trim();
     
-    // === FITUR /GOAL ===
+    // === /GOAL FEATURE ===
     if (text.startsWith('/goal ')) {
         const goal = text.replace('/goal ', '');
         input.value = '';
-        // Kirim ke endpoint multi-agent (sesuaikan nama fungsinya dengan yang ada di file lo)
+        // Send to multi-agent endpoint (adjust the function name with the one in your file)
         if (typeof runMultiAgent === 'function') {
             runMultiAgent(goal);
             return;
         } else {
-            console.log("Mode Multi-Agent belum diinisialisasi di frontend");
+            console.log("Multi-Agent mode is not initialized in the frontend");
         }
     }
     // ===================
@@ -33,23 +33,23 @@ if "if (text.startsWith('/goal '))" not in html:
         html = html.replace(target_script, insert_code, 1)
         with open(html_path, "w") as f:
             f.write(html)
-        print("✅ Frontend (index.html) berhasil dipatch untuk /goal")
+        print("✅ Frontend (index.html) successfully patched for /goal")
     else:
-        print("⚠️ Gagal nemu fungsi sendMessage di index.html. Cek manual.")
+        print("⚠️ Failed to find sendMessage function in index.html. Check manually.")
 else:
-    print("✅ Frontend udah ada fitur /goal")
+    print("✅ Frontend already has /goal feature")
 
 # 2. Patch Backend (server.py)
-# Kita pastiin backend bisa nerima request multi-agent
+# Ensure the backend can receive multi-agent requests
 server_path = "web/server.py"
 with open(server_path, "r") as f:
     server = f.read()
 
 if "from multi_agent import run_multi_agent" not in server:
-    # Tambahin import di atas
+    # Add import at the top
     server = server.replace("from fastapi import", "from multi_agent import run_multi_agent\nfrom fastapi import", 1)
     with open(server_path, "w") as f:
         f.write(server)
-    print("✅ Backend (server.py) berhasil ditambahin import run_multi_agent")
+    print("✅ Backend (server.py) successfully added run_multi_agent import")
 else:
-    print("✅ Backend udah ada import multi_agent")
+    print("✅ Backend already has multi_agent import")
