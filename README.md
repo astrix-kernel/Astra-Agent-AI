@@ -1,4 +1,4 @@
-# Astrix AI Agent
+# Astro AI Agent
 
 Local-first AI agent with browser automation, multi-agent orchestration, and long-term memory. Runs 100% on your machine — no cloud, no telemetry.
 
@@ -44,11 +44,13 @@ Fill in `LLM_URL` and `LLM_API_KEY`.
 
 ### 4. Run
 
-    python3 web/server.py or you can just use an "astrix"
+    python3 web/server.py
 
 Open http://localhost:8765 in your browser.
 
 ## Configuration
+
+*Note: The environment variables below still use the `ASTRIX_` prefix in the codebase.*
 
 | Variable | Default | Description |
 |---|---|---|
@@ -78,7 +80,7 @@ Open http://localhost:8765 in your browser.
 
 ## Architecture
 
-    astrix-agent/
+    astro-agent/
     ├── 6_agent/           # Agent logic
     │   ├── chat.py        # Chat orchestration
     │   ├── multi_agent.py # Planner + Executor
@@ -96,26 +98,20 @@ Open http://localhost:8765 in your browser.
 > **Note:** separate project. The agent uses OmniRoute for LLM routing and
 > does not require local models.
 
-## Security
+## Troubleshooting
 
-This tool can execute shell commands and read/write files. Use with caution:
+### `error: externally-managed-environment` (PEP 668)
+If you are using a modern Linux distribution (like Arch Linux, Ubuntu 23.04+, or Fedora) and encounter this error when running `pip install -r requirements.txt`, it means your OS is protecting its system Python packages.
 
-- Only enable command execution in trusted environments
-- Review commands before approving
-- Never run untrusted code
-- Sandbox in a VM or container if running publicly
+**Solution:** Always use a Python Virtual Environment (`.venv`).
 
-## License
+```bash
+# 1. Create the virtual environment
+python -m venv .venv
 
-MIT — see LICENSE
+# 2. Activate it (Linux / macOS)
+source .venv/bin/activate
+# (For Windows: .venv\Scripts\activate)
 
-## Credits
-
-- OmniRoute — multi-provider LLM routing
-- Playwright — browser automation
-- FastAPI — backend framework
-- Tailwind CSS — frontend styling
-
-## Disclaimer
-
-Provided as-is, no warranty. Use at your own risk.
+# 3. Install the dependencies
+pip install -r requirements.txt
