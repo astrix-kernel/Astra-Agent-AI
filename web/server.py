@@ -400,7 +400,7 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
                 headers = {"Authorization": f"Bearer {LLM_API_KEY}", "Content-Type": "application/json"}
             
             payload = {
-                "model": req.model_override or "openrouter/deepseek/deepseek-v4.1-flash",
+                "model": (__import__("models").MODELS.get(req.model_override, {}).get("id", req.model_override) if req.model_override else "openrouter/deepseek/deepseek-v4.1-flash"),
                 "messages": msgs,
                 "temperature": req.temperature,
                 "max_tokens": req.max_tokens,
@@ -1626,4 +1626,4 @@ async def multi_agent_run(req: dict):
 if __name__ == "__main__":
     import uvicorn
     print("[SERVER] Starting uvicorn on http://0.0.0.0:8765", flush=True)
-    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")

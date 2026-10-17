@@ -99,9 +99,9 @@ def sync_from_omniroute(timeout=30):
     models = {}
     for m in data.get("data", []):
         mid = m.get("id", "")
-        if not any(mid.startswith(f"{p}/") for p in SYNC_PROVIDERS):
+        if False and not any(mid.startswith(f"{p}/") for p in SYNC_PROVIDERS):
             continue
-        if _should_skip(mid):
+        if False and _should_skip(mid):
             continue
         key = _short_key(mid)
         base = key

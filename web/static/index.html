@@ -475,9 +475,9 @@
                 };
 
                 window.updateModelUI = function() {
-                    document.getElementById('inputModelText').textContent = selectedModel.label;
-                    document.getElementById('sysModelName').textContent = selectedModel.label;
-                    document.getElementById('centerModelText').textContent = selectedModel.label;
+                    document.getElementById('inputModelText').textContent = selectedModel.id || selectedModel.label;
+                    document.getElementById('sysModelName').textContent = selectedModel.id || selectedModel.label;
+                    document.getElementById('centerModelText').textContent = selectedModel.id || selectedModel.label;
                     renderMenu(iMenu, selectedModel.key);
                 };
                 window.updateModelUI();
@@ -989,6 +989,52 @@ ${inputEl.value}`;
         }, 1500);
     });
     </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Pantau terus tiap 1 detik buat mastiin sinkron
+    setInterval(() => {
+        const sel = document.getElementById('setModelOverride');
+        if (!sel) return;
+
+        // Ambil ID asli (misal: openrouter/deepseek) dari dropdown settings
+        const selectedId = sel.value;
+        if (!selectedId) return;
+
+        // Paksa semua teks di area Chat jadi ID asli
+        const elInput = document.getElementById('inputModelText');
+        const elSys = document.getElementById('sysModelName');
+        const elCenter = document.getElementById('centerModelText');
+
+        if (elInput && elInput.textContent !== selectedId) elInput.textContent = selectedId;
+        if (elSys && elSys.textContent !== selectedId) elSys.textContent = selectedId;
+        if (elCenter && elCenter.textContent !== selectedId) elCenter.textContent = selectedId;
+
+    }, 1000); // 1000ms = 1 detik
+});
+</script>
+
 </body>
 
 </html>
