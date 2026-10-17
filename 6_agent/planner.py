@@ -1,4 +1,5 @@
-"""Planner — breakdown cerdas dengan dependency & verification."""
+"""Intelligent planner-breakdown with dependency & verification."""
+
 import json, re, time
 from config import REQUEST_TIMEOUT
 from tools import list_dir, read_file, grep
@@ -10,7 +11,6 @@ PLANNER_PROMPT = """Kamu adalah **Planner** untuk Astrix Agent — workspace pro
 
 Tugasmu: baca goal dari user, breakdown jadi **15-30 task** yang SATU ORANG BISA KERJA SENDIRI.
 
-## PRINSIP BREAKDOWN
 
 1. **Eksplorasi dulu** (3-5 task pertama):
    - Baca Makefile, Kconfig
@@ -34,7 +34,6 @@ Tugasmu: baca goal dari user, breakdown jadi **15-30 task** yang SATU ORANG BISA
    - Low-level (memory, types) sebelum high-level (render, AI)
    - Test satu komponen sebelum lanjut ke berikutnya
 
-## OUTPUT FORMAT (JSON)
 
 {"tasks": [
   {"id": 1, "desc": "Eksplorasi: baca Makefile untuk pahami build target"},
@@ -51,7 +50,6 @@ Tugasmu: baca goal dari user, breakdown jadi **15-30 task** yang SATU ORANG BISA
   {"id": 12, "desc": "Verifikasi: cek simbol VTX ada di binary pakai nm"}
 ]}
 
-## ATURAN KETAT
 - JANGAN lebih dari 30 task (mode max: 40)
 - JANGAN kurang dari 8 task (kecuali goal sangat kecil)
 - Setiap task harus SPESIFIK dan TERUKUR
@@ -78,7 +76,6 @@ def plan(goal, verbose=True):
     except Exception:
         pass
 
-    # Ambil project tree + knowledge
     try:
         tree = get_project_tree(max_depth=2)
     except Exception:
@@ -134,7 +131,7 @@ def plan(goal, verbose=True):
             "desc": t.get("desc", str(t)),
             "status": "pending",
             "result": "",
-            "notes": "",  # catatan untuk task selanjutnya
+            "notes": "", 
         })
 
     if not tasks:

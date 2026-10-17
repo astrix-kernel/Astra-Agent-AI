@@ -51,7 +51,6 @@ def synthesize(text, voice=None, output=None):
     out_path = Path(output) if output else OUTPUT_WAV
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Piper via CLI
     try:
         proc = subprocess.run(
             ["piper", "-m", str(voice_path), "-f", str(out_path)],
@@ -74,7 +73,6 @@ def synthesize(text, voice=None, output=None):
 def speak(text, voice=None):
     """Synthesize + play. Fallback toespeak-ng if Piper is not ready."""
 
-    # Try Piper first
     if DEFAULT_VOICE.exists() and DEFAULT_VOICE.stat().st_size > 10000000 and _has("piper"):
         wav = synthesize(text, voice=voice)
         if wav:
@@ -83,7 +81,6 @@ def speak(text, voice=None):
                     if _speak_with(player, wav):
                         return True
 
-    # Fallback:espeak-ng (robot, but always running)
     if _has("espeak-ng"):
         try:
             subprocess.run(

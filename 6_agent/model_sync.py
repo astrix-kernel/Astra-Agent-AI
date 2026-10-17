@@ -1,4 +1,5 @@
-"""Sync model registry dari OmniRoute /v1/models — multi-provider."""
+"""Sync registry models from OmniRoute/v1/models-multi-provider."""
+
 import json
 import urllib.request
 from pathlib import Path
@@ -6,10 +7,8 @@ from config import LLM_URL, LLM_API_KEY, LOG_DIR
 
 CACHE_FILE = LOG_DIR / "models_cache.json"
 
-# Provider yang di-sync (prefix model id)
 SYNC_PROVIDERS = ["nvidia", "cinf", "auto", "agy", "ds", "openrouter"]
 
-# Filter — model ini BUKAN chat model, skip
 SKIP_KEYWORDS = [
     "embed", "rerank", "nvclip", "safety", "guard",
     "detector", "parse", "retriever", "reward",
@@ -47,7 +46,8 @@ def _classify(model_id):
 
 
 def _short_key(model_id):
-    """Bikin key pendek unik dari model id."""
+    """Create a unique short key from the id model."""
+
     parts = model_id.split("/")
     if parts[0] == "nvidia":
         name = parts[-1]
@@ -99,7 +99,6 @@ def sync_from_omniroute(timeout=30):
     models = {}
     for m in data.get("data", []):
         mid = m.get("id", "")
-        # Skip kalau bukan provider yang di-sync
         if not any(mid.startswith(f"{p}/") for p in SYNC_PROVIDERS):
             continue
         if _should_skip(mid):

@@ -37,7 +37,6 @@ def run_tests(timeout=180):
         elapsed = time.time() - t0
         output = (r.stdout + r.stderr)[:8000]
 
-        # Parse summary
         passed = failed = errors = 0
         for line in output.split("\n"):
             m = re.search(r'(\d+)\s+passed', line)

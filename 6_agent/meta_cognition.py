@@ -1,23 +1,21 @@
-"""Meta-cognition — agent tau kapan yakin vs nggak."""
+"""Meta-cognition-agent knows when to be sure vs. not."""
+
 
 META_PROMPT = """Kamu adalah **Meta-Thinker** — bagian otak agent yang monitor kepastian.
 
 Setelah agent mau jawab, KAMU evaluasi: seberapa yakin agent terhadap jawabannya?
 
-## LEVEL KEPERCAYAAN
 
 **CERTAIN (90-100%)** — Yakin banget. Fakta jelas, evidence kuat.
 **CONFIDENT (70-89%)** — Cukup yakin. Reasonable assumption.
 **UNSURE (40-69%)** — Ragu-ragu. Butuh konfirmasi user.
 **GUESSING (0-39%)** — Nebak. Nggak ada dasar cukup.
 
-## KAPAN AGENT HARUS NGOMONG JUJUR
 
 - **CERTAIN/CONFIDENT** → jawab langsung dengan yakin
 - **UNSURE** → jawab + disclaimer: "Gw kurang yakin, tapi..."
 - **GUESSING** → jangan jawab, minta klarifikasi: "Gw butuh info lebih: ..."
 
-## HALUSINASI = MUSUH
 
 Kalau agent ngasih jawaban dengan nada yakin tapi confidence-nya rendah → itu HALUSINASI.
 Red flag:
@@ -26,7 +24,6 @@ Red flag:
 - Nyimpulin tanpa evidence
 - Ngasih nomor/angka spesifik tanpa hitungan
 
-## OUTPUT FORMAT (JSON)
 {"confidence": 0-100, "level": "certain|confident|unsure|guessing", "reason": "kenapa level ini", "should_disclaim": true|false}
 
 Kalau confidence < 40, agent HARUS minta klarifikasi bukan jawab.
@@ -44,10 +41,8 @@ def evaluate(user_msg, agent_response, context=""):
     prompt = f"""## USER
 {user_msg[:800]}
 
-## AGENT MAU JAWAB
 {agent_response[:2000]}
 
-## KONTEKS
 {context[:500] if context else '(none)'}
 
 Evaluasi confidence agent. Output JSON."""
@@ -79,7 +74,8 @@ Evaluasi confidence agent. Output JSON."""
 
 
 def add_disclaimer(response, confidence, level):
-    """Tambah disclaimer kalau perlu."""
+    """Add a disclaimer if necessary."""
+
     if level == "certain" or level == "confident":
         return response
     if level == "unsure":

@@ -6,12 +6,10 @@ MODES = {
         "icon": "🌱",
         "label": "Hemat",
         "desc": "Hemat token & waktu. Buat task kecil, chat singkat.",
-        # LLMs.
         "temperature": 0.05,
         "max_tokens_chat": 1024,
         "max_tokens_executor": 2048,
         "max_tokens_planner": 3072,
-        # Agent
         "max_agent_steps": 15,
         "max_agent_tasks_session": 10,
         "executor_max_steps": 20,
@@ -19,7 +17,6 @@ MODES = {
         "task_pause_seconds": 2,
         "build_jobs": 2,
         "memory_window": 5,
-        # Retry
         "retry_503_max_wait": 30,
         "retry_503_initial": 5,
     },

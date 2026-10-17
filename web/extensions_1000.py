@@ -3,7 +3,6 @@
 def generate_extensions():
     exts = []
     
-    # === LANGUAGES (150) ===
     languages = [
         ("python", "Python", "ph-file-py", "text-yellow-400", "bg-yellow-500/20", "pip", "python"),
         ("node", "Node.js", "ph-hexagon", "text-green-500", "bg-green-500/20", "pacman", "nodejs"),
@@ -34,7 +33,6 @@ def generate_extensions():
     for i, (id, name, icon, color, bg, pkg_mgr, pkg) in enumerate(languages):
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": bg, "category": "Languages", "desc": f"{name} runtime & compiler", "check_type": "bin", "check_target": {"python":"python3","node":"node","rust":"rustc","go":"go","java":"java","kotlin":"kotlinc","scala":"scala","clojure":"clojure","haskell":"ghc","ocaml":"ocaml","elixir":"elixir","erlang":"erl","crystal":"crystal","nim":"nim","zig":"zig","lua":"lua","julia":"julia","r":"Rscript","perl":"perl","php":"php","ruby":"ruby","dart":"dart","swift":"swift","fortran":"gfortran","cobol":"cobc"}.get(id, id), "install_pkg": pkg})
     
-    # === FRAMEWORKS (200) ===
     frameworks = {
         "frontend": [
             ("react", "React", "ph-atom", "text-cyan-400"), ("vue", "Vue.js", "ph-leaf", "text-green-500"),
@@ -85,7 +83,6 @@ def generate_extensions():
         for id, name, icon, color in items:
             exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-blue-500/20", "category": cat.capitalize(), "desc": f"{name} framework", "check_type": "bin", "check_target": id, "install_pkg": name.lower()})
 
-    # === DATABASES (100) ===
     dbs = [
         ("sqlite", "SQLite", "ph-database", "text-blue-400"), ("postgresql", "PostgreSQL", "ph-elephant", "text-blue-500"),
         ("mysql", "MySQL", "ph-database", "text-orange-400"), ("mariadb", "MariaDB", "ph-database", "text-brown-400"),
@@ -107,7 +104,6 @@ def generate_extensions():
     for id, name, icon, color in dbs:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-blue-500/20", "category": "Databases", "desc": f"{name} database", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === DEVOPS (150) ===
     devops = [
         ("docker", "Docker", "ph-cube", "text-blue-500"), ("podman", "Podman", "ph-seal", "text-purple-500"),
         ("kubernetes", "Kubernetes", "ph-sailboat", "text-blue-600"), ("helm", "Helm", "ph-anchor", "text-blue-400"),
@@ -127,7 +123,6 @@ def generate_extensions():
     for id, name, icon, color in devops:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-blue-500/20", "category": "DevOps", "desc": f"{name}", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === AI/ML (200) ===
     ai = [
         ("pytorch", "PyTorch", "ph-fire", "text-orange-500"), ("tensorflow", "TensorFlow", "ph-graph", "text-orange-600"),
         ("keras", "Keras", "ph-layer", "text-red-500"), ("jax", "JAX", "ph-lightning", "text-blue-500"),
@@ -148,7 +143,6 @@ def generate_extensions():
     for id, name, icon, color in ai:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-purple-500/20", "category": "AI/ML", "desc": f"{name} library", "check_type": "pyimport", "check_target": id.replace("-", "_"), "install_pkg": id.replace("-", "_")})
 
-    # === DATA (150) ===
     data = [
         ("pandas", "Pandas", "ph-table", "text-purple-500"), ("numpy", "NumPy", "ph-function", "text-blue-500"),
         ("polars", "Polars", "ph-lightning", "text-cyan-500"), ("pyarrow", "PyArrow", "ph-arrow-right", "text-orange-500"),
@@ -169,7 +163,6 @@ def generate_extensions():
     for id, name, icon, color in data:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-cyan-500/20", "category": "Data", "desc": f"{name} data library", "check_type": "pyimport", "check_target": id.replace("-", "_"), "install_pkg": id.replace("-", "_")})
 
-    # === TESTING (100) ===
     testing = [
         ("pytest", "Pytest", "ph-flask", "text-green-500"), ("unittest", "Unittest", "ph-flask", "text-blue-500"),
         ("jest", "Jest", "ph-joker", "text-red-500"), ("vitest", "Vitest", "ph-lightning", "text-yellow-500"),
@@ -190,7 +183,6 @@ def generate_extensions():
     for id, name, icon, color in testing:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-green-500/20", "category": "Testing", "desc": f"{name} testing tool", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === MEDIA (80) ===
     media = [
         ("ffmpeg", "FFmpeg", "ph-film-strip", "text-blue-500"), ("imagemagick", "ImageMagick", "ph-image", "text-purple-500"),
         ("pandoc", "Pandoc", "ph-file-text", "text-blue-400"), ("tesseract", "Tesseract OCR", "ph-text-t", "text-yellow-500"),
@@ -206,7 +198,6 @@ def generate_extensions():
     for id, name, icon, color in media:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-pink-500/20", "category": "Media", "desc": f"{name} media tool", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === SECURITY (80) ===
     security = [
         ("nmap", "Nmap", "ph-radar", "text-red-500"), ("wireshark", "Wireshark", "ph-wifi-high", "text-blue-500"),
         ("tcpdump", "tcpdump", "ph-packet", "text-green-500"), ("metasploit", "Metasploit", "ph-skull", "text-red-600"),
@@ -222,7 +213,6 @@ def generate_extensions():
     for id, name, icon, color in security:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-red-500/20", "category": "Security", "desc": f"{name} security tool", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === SYSTEM (60) ===
     system = [
         ("htop", "htop", "ph-activity", "text-green-500"), ("btop", "btop", "ph-activity", "text-blue-500"),
         ("ripgrep", "ripgrep", "ph-magnifying-glass", "text-blue-500"), ("fd", "fd", "ph-magnifying-glass", "text-cyan-500"),
@@ -242,7 +232,6 @@ def generate_extensions():
     for id, name, icon, color in system:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-orange-500/20", "category": "System", "desc": f"{name} CLI tool", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === EDITORS & IDE (40) ===
     editors = [("jetbrains-toolbox", "JetBrains Toolbox", "ph-code", "text-orange-500"), ("intellij", "IntelliJ IDEA", "ph-code", "text-orange-500"),
               ("pycharm", "PyCharm", "ph-code", "text-green-500"), ("webstorm", "WebStorm", "ph-code", "text-cyan-500"),
               ("goland", "GoLand", "ph-code", "text-blue-500"), ("clion", "CLion", "ph-code", "text-purple-500"),
@@ -252,7 +241,6 @@ def generate_extensions():
     for id, name, icon, color in editors:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-purple-500/20", "category": "Editors", "desc": f"{name}", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === NETWORKING (40) ===
     networking = [("nginx", "Nginx", "ph-globe", "text-green-500"), ("apache", "Apache HTTP", "ph-globe", "text-red-500"),
                   ("caddy", "Caddy", "ph-globe", "text-blue-500"), ("traefik", "Traefik", "ph-globe", "text-cyan-500"),
                   ("haproxy", "HAProxy", "ph-globe", "text-blue-500"), ("envoy", "Envoy", "ph-globe", "text-purple-500"),
@@ -264,7 +252,6 @@ def generate_extensions():
     for id, name, icon, color in networking:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-cyan-500/20", "category": "Networking", "desc": f"{name}", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === MONITORING (30) ===
     monitoring = [("prometheus", "Prometheus", "ph-fire", "text-orange-500"), ("grafana", "Grafana", "ph-chart-line", "text-orange-500"),
                   ("loki", "Loki", "ph-file-text", "text-yellow-500"), ("jaeger", "Jaeger", "ph-magnifying-glass", "text-blue-500"),
                   ("sentry", "Sentry", "ph-warning-circle", "text-purple-500"), ("datadog", "Datadog", "ph-dog", "text-purple-500"),
@@ -273,7 +260,6 @@ def generate_extensions():
     for id, name, icon, color in monitoring:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-red-500/20", "category": "Monitoring", "desc": f"{name}", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # === GAMING / GRAPHICS (30) ===
     gaming = [("godot", "Godot", "ph-game-controller", "text-blue-500"), ("unity", "Unity", "ph-cube", "text-gray-200"),
               ("unreal", "Unreal Engine", "ph-cube", "text-gray-200"), ("bevy", "Bevy", "ph-cube", "text-purple-500"),
               ("raylib", "raylib", "ph-game-controller", "text-blue-500"), ("sdl", "SDL2", "ph-window", "text-blue-400"),
@@ -282,7 +268,6 @@ def generate_extensions():
     for id, name, icon, color in gaming:
         exts.append({"id": id, "name": name, "icon": icon, "color": color, "bg": "bg-blue-500/20", "category": "Graphics", "desc": f"{name}", "check_type": "bin", "check_target": id, "install_pkg": id})
 
-    # Duplicate variations untuk mencapai 1000+
     base_count = len(exts)
     suffixes = ["Pro", "Lite", "X", "Plus", "Extended", "Advanced", "Basic", "Mini", "Max", "Ultra"]
     categories = ["Languages", "Frameworks", "Databases", "DevOps", "AI/ML", "Data", "Testing", "Media", "Security", "System", "Editors", "Networking", "Monitoring", "Graphics"]

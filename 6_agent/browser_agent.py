@@ -28,7 +28,6 @@ def _ensure():
             locale='en-US',
         )
         
-        # === STEALTH: hapus automation flags ===
         _page.add_init_script("""
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
             Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
@@ -44,7 +43,6 @@ def _ensure():
             );
         """)
         
-        # Coba playwright-stealth kalau ada
         try:
             from playwright_stealth import stealth_sync
             stealth_sync(_page)
@@ -71,11 +69,11 @@ def browser_open(url):
         title = page.title()
         
         main_selectors = [
-            "#mw-content-text",          # Wikipedia
-            "article",                    # Semantic
-            "main",                       # Semantic
-            "[role='main']",              # ARIA
-            ".markdown-body",             # GitHub
+            "#mw-content-text",         
+            "article",                   
+            "main",                      
+            "[role='main']",             
+            ".markdown-body",            
             ".post-content, .entry-content, .article-content",
             "#content", ".content",
             "body"
@@ -113,7 +111,6 @@ def browser_click(selector):
         page.click(selector, timeout=15000)
         page.wait_for_timeout(1000)
         
-        # Tunggu navigation kalau URL berubah
         if page.url != old_url:
             try:
                 page.wait_for_load_state('networkidle', timeout=10000)
@@ -129,11 +126,9 @@ def browser_type(selector, text):
     """Isi text ke input — wait longer, try multiple selectors."""
     page = _ensure()
     try:
-        # Try wait 15s for selector
         try:
             page.wait_for_selector(selector, timeout=15000, state="visible")
         except:
-            # Fallback: try alternative selectors for common sites
             alternatives = [selector]
             if "input[name=q]" in selector:
                 alternatives += ["textarea[name=q]", "input[type=text]", "textarea[type=text]", "input[title*='Search']"]
@@ -151,7 +146,6 @@ def browser_type(selector, text):
             if not found:
                 return f"❌ Selector '{selector}' not found after 15s"
         
-        # Set realistic user agent (bypass bot detection)
         page.fill(selector, text, timeout=15000)
         page.wait_for_timeout(500)
         return f"✅ Typed '{text[:50]}' into {selector}"

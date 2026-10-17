@@ -1,4 +1,5 @@
-"""Model registry — merge curated (manual) + auto-synced dari OmniRoute."""
+"""Registry-merge curated (manual) + auto-synced model from OmniRoute."""
+
 from models_curated import (
     REASONING_MODELS, is_reasoning, MODELS as _CURATED_MODELS,
 )
@@ -8,7 +9,6 @@ _AUTO = _load_sync_cache()
 _curated_ids = {v["id"] for v in _CURATED_MODELS.values()}
 _filtered_auto = {k: v for k, v in _AUTO.items() if v["id"] not in _curated_ids}
 
-# Curated override auto kalau bentrok
 MODELS = {**_CURATED_MODELS, **_filtered_auto}
 
 

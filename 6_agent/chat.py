@@ -1,4 +1,5 @@
-"""Chat module — komunikasi ke LLM (streaming & non-streaming). Simpel aja."""
+"""Chat module — communication to LLM (streaming & non-streaming). It's simple."""
+
 import json
 import requests
 import stop_flag
@@ -6,7 +7,8 @@ from config import LLM_URL, LLM_API_KEY
 
 
 def _build_messages(history, user_msg, system_prompt):
-    """Susun messages array buat API."""
+    """Arrange the messages array for THE API."""
+
     msgs = []
     if system_prompt:
         msgs.append({"role": "system", "content": system_prompt})
@@ -16,7 +18,8 @@ def _build_messages(history, user_msg, system_prompt):
 
 
 def _stream_api(url, headers, payload, on_chunk, timeout=(10, 300)):
-    """Stream dari API OpenAI-compatible. Return full text."""
+    """Stream from OpenAI-compatible APIS. Return full text."""
+
     full = []
     try:
         r = requests.post(url, headers=headers, json=payload, stream=True, timeout=timeout)
@@ -27,7 +30,6 @@ def _stream_api(url, headers, payload, on_chunk, timeout=(10, 300)):
             return "".join(full)
         
         for line in r.iter_lines():
-            # Stop check — biar bisa cancel dari web
             if stop_flag.is_stopped():
                 print('[STREAM] ⛔ Stop flag detected', flush=True)
                 if on_chunk:
@@ -52,7 +54,6 @@ def _stream_api(url, headers, payload, on_chunk, timeout=(10, 300)):
             
             delta = choices[0].get("delta", {})
             content = delta.get("content", "")
-            # SKIP reasoning_content (thinking) — cuma tampilin jawaban final
             if content:
                 full.append(content)
                 if on_chunk:
@@ -73,14 +74,13 @@ def chat_turn_streaming(history, user_msg, focus="chat", on_chunk=None,
                         top_p=0.9, top_k=40, freq_pen=0.0, pres_pen=0.0,
                         language="id"):
     """Chat streaming — support custom API & default OmniRoute."""
+
     
-    # Web search instruction (simple mode)
     if web_search:
         system_prompt = system_prompt + "\n\n[WEB SEARCH MODE] Kalau butuh info real-time, bilang lu butuh search."
     
     messages = _build_messages(history, user_msg, system_prompt)
     
-    # === CUSTOM API ===
     if custom_base_url and custom_api_key:
         url = custom_base_url.rstrip("/") + "/chat/completions"
         headers = {
@@ -98,7 +98,6 @@ def chat_turn_streaming(history, user_msg, focus="chat", on_chunk=None,
         print(f"[CHAT] Custom API: {url} | model={custom_model}")
         return _stream_api(url, headers, payload, on_chunk)
     
-    # === DEFAULT OMNIROUTE ===
     headers = {
         "Authorization": f"Bearer {LLM_API_KEY}",
         "Content-Type": "application/json",
@@ -119,10 +118,10 @@ def chat_turn(history, user_msg, focus="chat", max_tool_rounds=None,
               temperature=0.7, max_tokens=4096, compress_history=False,
               language="id", custom_base_url=None, custom_api_key=None, custom_model=None,
               top_p=0.9, top_k=40, freq_pen=0.0, pres_pen=0.0):
-    """Non-streaming chat — support custom provider + default OmniRoute."""
+    """Non-streaming chat - support custom provider + default OmniRoute."""
+
     messages = _build_messages(history, user_msg, system_prompt)
     
-    # === CUSTOM API ===
     if custom_base_url and custom_api_key:
         url = custom_base_url.rstrip('/') + "/chat/completions"
         headers = {
@@ -153,7 +152,6 @@ def chat_turn(history, user_msg, focus="chat", max_tool_rounds=None,
             print(f"[CHAT-TURN] Exception: {e}", flush=True)
             return f"Error: {e}", None
     
-    # === DEFAULT OMNIROUTE ===
     headers = {
         "Authorization": f"Bearer {LLM_API_KEY}",
         "Content-Type": "application/json",

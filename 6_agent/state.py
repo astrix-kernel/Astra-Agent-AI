@@ -36,7 +36,7 @@ def append_progress(text):
 def create_state(goal, tasks):
     return {
         "goal": goal,
-        "tasks": tasks,          # [{"id": 1, "desc": "...", "status": "pending", "result": ""}]
+        "tasks": tasks,         
         "current_idx": 0,
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -72,7 +72,6 @@ def add_task(state, desc, priority="normal"):
     new_id = max([t["id"] for t in state["tasks"]], default=0) + 1
     new_task = {"id": new_id, "desc": desc, "status": "pending",
                 "result": "", "priority": priority, "added_during_run": True}
-    # Insert sebelum task terakhir yang belum dijalankan
     state["tasks"].append(new_task)
     return new_task
 

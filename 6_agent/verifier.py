@@ -1,4 +1,5 @@
-"""Verifier — cek FAKTA task, bukan cuma LLM review."""
+"""Verifier — check task FACTS, not just LLM review."""
+
 import re, subprocess
 from pathlib import Path
 from tools import safe_path, _verify_syntax
@@ -16,7 +17,6 @@ from config import ASTRIX_ROOT
     evidence = {"files_checked": [], "build_status": None, "grep_results": []}
     desc = task_desc.lower()
 
-    # === 1. Cek file exist (kalau task bilang "bikin file X") ===
     file_patterns = [
         r'(?:bikin|buat|create|new file|tambah)\s+([a-z0-9_/\.\-]+\.(?:c|h|S|asm|ld|mk|py|sh))',
         r'file\s+([a-z0-9_/\.\-]+\.(?:c|h|S|asm|ld|mk|py|sh))',
@@ -26,17 +26,14 @@ from config import ASTRIX_ROOT
     for pat in file_patterns:
         expected_files.extend(re.findall(pat, desc))
 
-    # Kalau task bilang "bikin file X"
     if any(k in desc for k in ["bikin file", "buat file", "create file", "new file", "bikin"]) and expected_files:
         for f in expected_files[:3]:
-            # Cari file di seluruh workspace
             found = list(ASTRIX_ROOT.rglob(f)) + list(ASTRIX_ROOT.rglob(Path(f).name))
             if not found:
                 issues.append(f"❌ File `{f}` GAK ADA — task bilang udah bikin")
             else:
                 evidence["files_checked"].append(str(found[0].relative_to(ASTRIX_ROOT)))
 
-    # === 2. Cek build (kalau task bilang "fix", "build", "compile") ===
     if any(k in desc for k in ["fix", "build", "compile", "benerin", "error"]):
         try:
             r = subprocess.run(["make", "-j4"], cwd=str(ASTRIX_ROOT),
@@ -48,13 +45,11 @@ from config import ASTRIX_ROOT
             else:
                 evidence["build_status"] = "OK"
         except FileNotFoundError:
-            # Gak ada Makefile, coba gcc syntax check file yang disentuh
             pass
         except subprocess.TimeoutExpired:
             issues.append("⚠️ Build timeout >2 menit")
             evidence["build_status"] = "TIMEOUT"
 
-    # === 3. Cek fungsi (kalau task bilang "tambah fungsi X") ===
     fn_patterns = [
         r'(?:tambah|bikin|buat)\s+(?:fungsi|function)\s+([a-z_][a-z0-9_]+)',
         r'(?:fungsi|function)\s+([a-z_][a-z0-9_]+)',
@@ -75,7 +70,6 @@ from config import ASTRIX_ROOT
         except Exception:
             pass
 
-    # === 4. Cek files_touched — minimal ada 1 file yang disentuh ===
     if not files_touched and "eksplorasi" not in desc and "baca" not in desc:
         issues.append("⚠️ Gak ada file yang disentuh — agent mungkin cuma jawab tanpa aksi")
 
@@ -84,7 +78,8 @@ from config import ASTRIX_ROOT
 
 
 def build_fix_feedback(issues):
-    """Bikin feedback buat executor kalau verifikasi gagal."""
+    """Make feedback for the executor if verification fails."""
+
     if not issues:
         return ""
     lines = ["## 🚫 VERIFIKASI GAGAL — TASK BELUM SELESAI"]
@@ -97,7 +92,8 @@ def build_fix_feedback(issues):
 
 
 def verify_error_pattern(tool, args, error):
-    """Cek apakah error pattern udah pernah kejadian + ada solusi lama."""
+    """Check if the error pattern has ever happened + there is an old solution."""
+
     from error_learning import find_similar
     prev = find_similar(tool, args, error)
     if prev and prev.get("count", 0) >= 2:

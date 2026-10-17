@@ -1,4 +1,5 @@
-"""Persistent knowledge base — pelajaran dari setiap task."""
+"""Persistent knowledge base — the lessons learned from each task."""
+
 import json, time
 from pathlib import Path
 from config import LOG_DIR
@@ -9,10 +10,10 @@ KB_FILE = LOG_DIR / "knowledge.json"
 def _load():
     if not KB_FILE.exists():
         return {
-            "patterns": [],       # pola kode yang ditemukan
-            "gotchas": [],        # hal yang sering bikin error
-            "conventions": [],    # konvensi project
-            "files_map": {},      # path -> fungsi/struct penting
+            "patterns": [],      
+            "gotchas": [],       
+            "conventions": [],   
+            "files_map": {},     
         }
     try:
         return json.loads(KB_FILE.read_text())
@@ -53,7 +54,8 @@ def update_file_map(path, notes):
 
 
 def build_knowledge_block(max_items=8):
-    """Return string konteks dari knowledge base."""
+    """Return string context from the knowledge base."""
+
     kb = _load()
     parts = []
 

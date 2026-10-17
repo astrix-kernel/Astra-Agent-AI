@@ -48,7 +48,6 @@ def cfg():
     return get_mode(get())
 
 
-# = = = = = = = = = = = management model = = = = = = = = = = = =
 _MODEL_FILE = LOG_DIR / "model.json"
 _current_model = None
 

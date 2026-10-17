@@ -18,7 +18,6 @@ from events import on_event, get_activity, get_totals
 from config import ASTRIX_ROOT
 
 
-# ============ QUEUE UNTUK STREAMING ============
 _clients = set()
 _log_buffer = []
 
@@ -81,7 +80,6 @@ class _BroadcastStream:
             self.buffer = ""
 
 
-# ============ LIFESPAN ============
 _loop = None
 
 @asynccontextmanager
@@ -102,7 +100,6 @@ async def lifespan(app: FastAPI):
         _cur_label = "(belum dipilih)"
     broadcast(f"Astrix Web UI ready — model: {_cur_label}", "system")
 
-    # Greeting otomatis (kaya temen nyapa)
     try:
         import mood as _mood
         d = _mood.get()
@@ -125,7 +122,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# SETTINGS EXTENSION
 try:
     from settings_ext import register_endpoints as _reg_ext
     def _dbg(msg):
@@ -144,7 +140,6 @@ if os.path.exists(_static_dir):
 
 
 
-# ============ ENDPOINTS ============
 class ChatReq(BaseModel):
     message: str
     focus: str = "coding"
@@ -191,7 +186,6 @@ def _run_in_thread(fn, *args, **kwargs):
 
 
 
-# ============ WATCHER BROADCAST HOOK ============
 def _watcher_broadcast(action, rel_path, abs_path):
     try:
         broadcast_json({"kind": "file_watch", "action": action, "path": rel_path})
@@ -253,7 +247,7 @@ class ChatReq(BaseModel):
     model_override: str = ""
     response_style: str = "default"
 
-    focus: str = "chat"  # "chat" atau "coding"
+    focus: str = "chat" 
 
 
 class SessionReq(BaseModel):
@@ -327,7 +321,6 @@ async def chat_stream(req: ChatReq):
         yield f"data: {_json.dumps({'type': 'chunk', 'text': '🧪 '})}\n\n"
         
         try:
-            # === AUTO-BROWSE: detect URL di pesan user ===
             import re as _re
             url_match = _re.search(r'https?://[^\s<>"]+', req.message)
             final_system_prompt = req.system_prompt
@@ -344,7 +337,6 @@ async def chat_stream(req: ChatReq):
                     from browser_agent import browser_open
                     page_content = browser_open(url)
                     print(f"[AUTO-BROWSE] Fetched {len(page_content)} chars", flush=True)
-                    # Inject as AGGRESSIVE user message (not system prompt)
                     content_snippet = page_content[:4000]
                     final_user_message = f"""⚠️ CRITICAL: Kamu WAJIB jawab dari [LIVE WEB CONTENT] di bawah. DILARANG bilang "dari memori" atau "tidak punya akses web". Konten ini BARU SAJA DI-FETCH LIVE dari {url}.
 
@@ -358,7 +350,6 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
                     yield f"data: {_json.dumps({'type': 'chunk', 'text': '✅ ' })}\n\n"
 
                     
-                    # === AUTO-CLICK / AUTO-TYPE ===
                     try:
                         import re as _re2
                         click_m = _re2.search(r"(?:click|klik)\s+(?:on\s+|pada\s+)?[`'\"]([^`'\"]+)[`'\"]", req.message, _re2.I)
@@ -383,7 +374,6 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
                             final_user_message += f"\n\n[TYPED INTO {sel}]: {type_result}"
 
                         
-                        # AUTO-ENTER: "tekan Enter" / "press Enter" / "submit"
                         enter_m = _re2.search(r"(?:tekan|press|hit|submit|kirim|enter)\s+(?:enter|return|submit|form)", req.message, _re2.I)
                         if enter_m and (click_m or type_m):
                             from browser_agent import browser_press, browser_get_text as _bgt
@@ -391,7 +381,7 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
                             enter_result = browser_press("Enter")
                             print(f"[AUTO-ENTER] {enter_result}", flush=True)
                             import time as _t
-                            _t.sleep(2)  # wait page load after Enter
+                            _t.sleep(2) 
                             page_after_enter = _bgt("body")
                             final_user_message += f"\n\n[AFTER ENTER]\n{enter_result}\n\nRESULT PAGE:\n{page_after_enter[:3000]}\n[END RESULT]\n\nJawab berdasarkan halaman HASIL setelah Enter."
                     except Exception as _ce:
@@ -402,7 +392,6 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
             
             msgs = _build_messages(history, final_user_message, final_system_prompt)
             
-            # Pilih custom atau default
             if req.base_url and req.api_key:
                 url = req.base_url.rstrip('/') + '/chat/completions'
                 headers = {"Authorization": f"Bearer {req.api_key}", "Content-Type": "application/json"}
@@ -420,7 +409,6 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
             
             print(f"[BYPASS] POST {url} | model={payload['model']}", flush=True)
             
-            # Collect chunks
             collected = []
             def cb(t):
                 collected.append(t)
@@ -482,19 +470,16 @@ def _do_chat(msg, focus, web_search=False):
 
     session = chat_store.get_active_session()
     sid = session["id"]
-    stop_flag.set_current(sid)  # tandai chat ini yang aktif
+    stop_flag.set_current(sid) 
 
-    # Simpan pesan user ke history file
     chat_store.append_message(sid, "user", msg)
 
-    # Bangun history dari session (buang pesan terakhir yang baru ditambah)
     history = []
     if getattr(req, 'keep_context', True):
         history = [{"role": m["role"], "content": m["content"]} for m in session["messages"][:-1]]
 
     response, _ = chat_turn(history, msg, focus=focus, web_search=getattr(req, 'web_search', False))
 
-    # Simpan respons agent
     chat_store.append_message(sid, "assistant", response)
 
     stop_flag.clear(sid)
@@ -543,7 +528,6 @@ class ModelReq(BaseModel):
 
 
 
-# ============ QEMU VISION ============
 class QemuReq(BaseModel):
     disk_image: str = ""
     ram: str = "512"
@@ -556,7 +540,6 @@ async def qemu_launch(req: QemuReq):
     disk = req.disk_image
     if not disk:
         return {"ok": False, "msg": "disk_image kosong"}
-    # Auto-detect OVMF
     ovmf = None
     for pth in ["/usr/share/edk2/x64/OVMF.4m.fd",
                 "/usr/share/edk2-ovmf/x64/OVMF.fd",
@@ -624,7 +607,6 @@ async def qemu_screenshot(req: QemuReq):
     return {"ok": "error" not in report, "report": report, "text": text}
 
 
-# ============ TEST RUNNER ============
 @app.post("/api/test/run")
 async def run_test_api():
     from test_runner import run_tests, format_report
@@ -641,7 +623,6 @@ async def detect_test_api():
     return {"cmd": cmd, "description": desc}
 
 
-# ============ FILE WATCHER ============
 @app.post("/api/watcher/start")
 async def watcher_start():
     from watcher import start, is_running
@@ -687,11 +668,9 @@ async def voice_stop():
         if not text:
             return {"ok": False, "error": "empty transcription"}
 
-        # Auto-kirim ke chat sebagai user message
         broadcast({"kind": "user_message", "msg": text}, "system")
         broadcast(text, "voice_transcript")
 
-        # Trigger chat_turn di background
         threading.Thread(
             target=_run_in_thread,
             args=(_do_voice_chat, text),
@@ -727,7 +706,6 @@ def _do_voice_chat(text):
 
 
 
-# ============ VISION ============
 @app.post("/api/vision/analyze")
 async def vision_analyze(req: dict):
     """Analisis gambar yang di-upload atau screenshot terbaru."""
@@ -776,7 +754,6 @@ async def vision_upload(req: dict):
 
 
 
-# ============ TERMINAL ============
 class TermReq(BaseModel):
     cmd: str
     timeout: int = 60
@@ -951,10 +928,8 @@ async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     _clients.add(ws)
     try:
-        # Kirim buffer terakhir
         for msg in _log_buffer[-50:]:
             await ws.send_json(msg)
-        # Keep-alive
         while True:
             try:
                 await asyncio.wait_for(ws.receive_text(), timeout=60)
@@ -968,7 +943,6 @@ async def ws_endpoint(ws: WebSocket):
 
 
 
-# ============ MULTI-AGENT ============
 class AgentReq(BaseModel):
     goal: str
     scope: str
@@ -1011,7 +985,6 @@ async def agents_stop(req: dict):
     from multi_agent import stop
     aid = req.get("agent_id", "")
     ok, msg = stop(aid)
-    # Silent — jangan broadcast, biar gak spam
     return {"ok": ok, "msg": msg}
 
 
@@ -1029,7 +1002,6 @@ async def agents_detail(aid: str):
     }
 
 
-# ============ TERMINAL ============
 class TermReq(BaseModel):
     cmd: str
     timeout: int = 60
@@ -1060,8 +1032,6 @@ async def get_system_info():
     uptime_sec = 0.0
     gpu = "Unknown"
 
-    # === RAM + UPTIME ===
-    # Strategy: psutil (universal) → fallback per-OS
     try:
         import psutil
         mem = psutil.virtual_memory()
@@ -1070,7 +1040,6 @@ async def get_system_info():
         ram_pct = mem.percent
         uptime_sec = time.time() - psutil.Process().create_time()
     except ImportError:
-        # No psutil — per-OS fallback
         if os_name == "Linux":
             try:
                 with open("/proc/meminfo") as f:
@@ -1086,7 +1055,7 @@ async def get_system_info():
                 with open("/proc/uptime") as f:
                     uptime_sec = float(f.read().split()[0])
             except Exception: pass
-        elif os_name == "Darwin":  # macOS
+        elif os_name == "Darwin": 
             try:
                 import subprocess, re as _re
                 total_bytes = int(subprocess.check_output(
@@ -1132,7 +1101,6 @@ async def get_system_info():
                 uptime_sec = ctypes.windll.kernel32.GetTickCount64() / 1000.0
             except Exception: pass
 
-    # Format uptime
     uptime_str = "Unknown"
     if uptime_sec > 0:
         days = int(uptime_sec // 86400)
@@ -1141,7 +1109,6 @@ async def get_system_info():
         secs = int(uptime_sec % 60)
         uptime_str = f"{days}d {hours}h {mins}m {secs}s" if days > 0 else f"{hours}h {mins}m {secs}s"
 
-    # === GPU DETECTION (per OS) ===
     try:
         import subprocess
         if os_name == "Linux":
@@ -1152,7 +1119,6 @@ async def get_system_info():
                         gpu = line.split(": ")[1].split(" (")[0]
                         break
             except Exception:
-                # Fallback: baca /sys/class/drm tanpa lspci
                 try:
                     import glob
                     for card in glob.glob("/sys/class/drm/card*/device/vendor"):
@@ -1248,9 +1214,6 @@ async def fetch_models(req: dict):
         return {"error": str(e)}
 
 
-# ==========================================
-# EXTENSION MARKETPLACE ENDPOINTS
-# ==========================================
 import subprocess as _sp
 import sys as _sys
 import os as _os
@@ -1308,9 +1271,6 @@ async def ext_install_cmd(req: dict):
     return {"cmd": cmd, "pkg": ext["install_pkg"]}
 
 
-# ==========================================
-# EXTENSION AUTO-INSTALL (STREAM LOG)
-# ==========================================
 import uuid as _uuid
 from threading import Thread as _Thread
 import shutil as _shutil
@@ -1323,13 +1283,11 @@ def _run_install_job(job_id, ext):
     jobs[job_id]["status"] = "running"
     output = []
     
-    # Tentukan command
     cmds = []
     if ext["check_type"] == "pyimport":
         pip_bin = _shutil.which("pip") or _shutil.which("pip3") or "pip"
         cmds.append([pip_bin, "install", "--user", "--break-system-packages", ext["install_pkg"]])
     else:
-        # Binari system: pkexec (polkit popup) dulu, lalu fallback
         if _shutil.which("pkexec"):
             cmds.append(["pkexec", "pacman", "-S", "--noconfirm", "--needed", ext["install_pkg"]])
         if _shutil.which("sudo"):
@@ -1394,7 +1352,6 @@ async def ext_install_status(job_id: str):
     job = _install_jobs.get(job_id)
     if not job:
         return {"error": "Job tidak ditemukan"}
-    # Auto-cleanup setelah 60 detik selesai
     return job
 
 
@@ -1448,9 +1405,6 @@ async def validate_api_key(req: dict):
 
 
 
-# ==========================================
-# WORKSPACE FILE MANAGER
-# ==========================================
 @app.get("/api/workspace/list")
 async def workspace_list(path: str = None):
     """List folder & file dalam path — buat file browser."""
@@ -1465,7 +1419,6 @@ async def workspace_list(path: str = None):
         
         items = []
         for entry in os.scandir(path):
-            # Skip hidden files
             if entry.name.startswith('.'): continue
             try:
                 is_dir = entry.is_dir()
@@ -1479,7 +1432,6 @@ async def workspace_list(path: str = None):
             except (PermissionError, OSError):
                 continue
         
-        # Sort: folders dulu, lalu alphabet
         items.sort(key=lambda x: (not x["is_dir"], x["name"].lower()))
         
         return {
@@ -1513,12 +1465,10 @@ async def workspace_validate(req: dict):
         if not os.path.isdir(path):
             return {"valid": False, "error": f"Bukan folder: {path}"}
         
-        # Hitung total file & size (limit 5000 files biar gak lama)
         total_files = 0
         total_size = 0
         MAX_SCAN = 5000
         for root, dirs, files in os.walk(path):
-            # Skip .git, node_modules, build (biar cepet)
             dirs[:] = [d for d in dirs if d not in ['.git', 'node_modules', 'build', '__pycache__', '.venv', 'venv']]
             for f in files:
                 if total_files >= MAX_SCAN: break
@@ -1529,7 +1479,6 @@ async def workspace_validate(req: dict):
                 except: pass
             if total_files >= MAX_SCAN: break
         
-        # Deteksi tipe project berdasarkan file kunci
         project_type = "Unknown"
         markers = {
             "Makefile": "C/C++ Project",
@@ -1569,7 +1518,6 @@ async def workspace_home():
     import os
     home = os.path.expanduser("~")
     
-    # Cari folder project yang sering dipake
     suggestions = []
     common = ["Projects", "Documents", "Desktop", "Downloads", "workspace", "code"]
     for name in common:
@@ -1577,12 +1525,10 @@ async def workspace_home():
         if os.path.isdir(p):
             suggestions.append({"name": name, "path": p})
     
-    # Scan folder di home yang ada .git atau Makefile
     try:
         for entry in os.scandir(home):
             if entry.is_dir() and not entry.name.startswith('.'):
                 if entry.name in [s["name"] for s in suggestions]: continue
-                # Cek marker project
                 if os.path.exists(os.path.join(entry.path, '.git')) or \
                    os.path.exists(os.path.join(entry.path, 'Makefile')) or \
                    os.path.exists(os.path.join(entry.path, 'package.json')):
@@ -1593,9 +1539,6 @@ async def workspace_home():
 
 
 
-# ==========================================
-# MEMORY ENDPOINTS
-# ==========================================
 @app.get("/api/memory/list")
 async def memory_list():
     try:
@@ -1645,9 +1588,6 @@ async def memory_clear():
 
 
 
-# ==========================================
-# MULTI-AGENT ENDPOINT
-# ==========================================
 @app.post("/api/multi-agent/run")
 async def multi_agent_run(req: dict):
     import sys
@@ -1683,9 +1623,6 @@ async def multi_agent_run(req: dict):
         traceback.print_exc()
         return {"error": str(e), "logs": logs}
 
-# ==========================================
-# START SERVER
-# ==========================================
 if __name__ == "__main__":
     import uvicorn
     print("[SERVER] Starting uvicorn on http://0.0.0.0:8765", flush=True)

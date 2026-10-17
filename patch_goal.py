@@ -1,14 +1,10 @@
 import re
 
-# 1. Patch Frontend (index.html) to detect /goal
 html_path = "web/static/index.html"
 with open(html_path, "r") as f:
     html = f.read()
 
-# Find the sendMessage function, add /goal logic
 if "if (text.startsWith('/goal '))" not in html:
-    # Inject the /goal detection logic before sending to websocket
-    # (Adjust with the input variable name in your file, usually `input.value` or `msg`)
     target_script = "async function sendMessage()"
     if target_script in html:
         insert_code = """async function sendMessage() {
@@ -39,14 +35,11 @@ if "if (text.startsWith('/goal '))" not in html:
 else:
     print("✅ Frontend already has /goal feature")
 
-# 2. Patch Backend (server.py)
-# Ensure the backend can receive multi-agent requests
 server_path = "web/server.py"
 with open(server_path, "r") as f:
     server = f.read()
 
 if "from multi_agent import run_multi_agent" not in server:
-    # Add import at the top
     server = server.replace("from fastapi import", "from multi_agent import run_multi_agent\nfrom fastapi import", 1)
     with open(server_path, "w") as f:
         f.write(server)

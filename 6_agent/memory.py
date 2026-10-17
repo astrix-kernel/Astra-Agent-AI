@@ -61,16 +61,12 @@ def get_context(query=""):
 def extract_from_message(text):
     """Extract facts from user message using heuristics."""
     facts = []
-    # Name
     m = re.search(r"(?:nama (?:gue|aku|saya)|my name is|i'm|i am)\s+([A-Z][a-zA-Z]{2,15})", text, re.I)
     if m: facts.append(("identity", "name", m.group(1)))
-    # Project
     m = re.search(r"(?:project|proyek)\s+(?:gue|aku|saya|my)?\s*(?:namanya|named|called)?\s*([A-Z][a-zA-Z0-9._-]{2,30})", text, re.I)
     if m: facts.append(("project", "current", m.group(1)))
-    # Likes/dislikes
     m = re.search(r"(?:gue|aku|saya|i)\s+(?:suka|like)\s+([a-zA-Z0-9 ]{3,40})", text, re.I)
     if m: facts.append(("preference", "like", m.group(1).strip()[:40]))
-    # Save all
     saved = []
     for cat, k, v in facts:
         save_fact(cat, k, v)

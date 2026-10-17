@@ -1,4 +1,5 @@
-"""Self-reflection — review jawaban sendiri sebelum kirim."""
+"""Self-reflection-review your own answers before submitting."""
+
 
 REFLECT_PROMPT = """Kamu adalah **Self-Critic** — reviewer internal agent.
 
@@ -8,7 +9,6 @@ Kamu akan lihat:
 
 Tugasmu: KRITIK jawaban itu dengan keras. Cari kelemahan.
 
-## YANG DIKRITIK
 - **Akurasi**: ada yang salah/faktual salah?
 - **Kelengkapan**: ada yang kelewat?
 - **Kejelasan**: bisa dipahami?
@@ -16,7 +16,6 @@ Tugasmu: KRITIK jawaban itu dengan keras. Cari kelemahan.
 - **Halusinasi**: ada klaim tanpa dasar?
 - **Logika**: kesimpulan valid dari premis?
 
-## OUTPUT FORMAT (JSON)
 {"score": 1-10, "issues": ["masalah 1", "masalah 2"], "verdict": "accept|revise", "suggestion": "cara perbaiki"}
 
 - score 8-10 → accept (langsung kirim)
@@ -37,10 +36,8 @@ def critique(user_msg, agent_response, context=""):
     prompt = f"""## USER MESSAGE
 {user_msg[:1000]}
 
-## AGENT RESPONSE
 {agent_response[:3000]}
 
-## KONTEKS
 {context[:500] if context else '(none)'}
 
 Review jawaban di atas. Output JSON."""
@@ -72,24 +69,20 @@ Review jawaban di atas. Output JSON."""
 
 
 def improve(user_msg, agent_response, issues, suggestion, context=""):
-    """Bikin versi perbaikan dari jawaban."""
+    """Make an improved version of the answer."""
+
     from llm import call_llm
 
     prompt = f"""Jawaban sebelumnya ada masalah. Perbaiki!
 
-## USER MESSAGE
 {user_msg[:800]}
 
-## JAWABAN SEBELUMNYA (yang mau diperbaiki)
 {agent_response[:2000]}
 
-## MASALAH YANG DITEMUKAN
 {chr(10).join('- ' + i for i in issues)}
 
-## SARAN PERBAIKAN
 {suggestion}
 
-## KONTEKS
 {context[:500] if context else '(none)'}
 
 Sekarang tulis JAWABAN BARU yang lebih baik. Fokus perbaiki masalah di atas.
@@ -102,19 +95,16 @@ Jangan jelasin apa yang lu perbaiki — langsung kasih jawaban baru."""
             temperature=0.4,
         )
     except Exception:
-        return agent_response  # fallback
+        return agent_response 
 
 
 def should_reflect(user_msg, agent_response, focus="chat"):
-    """Cek apakah perlu reflect — skip kalau simpel."""
-    # Skip reflection kalau:
-    # - Jawaban pendek (<= 50 char)
-    # - Chat simple (greeting)
+    """Check whether it is necessary to reflect-skip if it is simple."""
+
     if len(agent_response) < 50:
         return False
     if focus == "chat" and len(user_msg) < 20:
         return False
-    # Skip kalau code block panjang (agent eksekusi task)
     if agent_response.count("```") >= 4:
         return False
     return True
@@ -140,7 +130,6 @@ def reflect_and_improve(user_msg, agent_response, context="", max_iter=1):
     if verdict == "accept" or score >= 8:
         return agent_response, info
 
-    # Perbaiki
     improved = improve(user_msg, agent_response, issues, suggestion, context)
     info["improved"] = True
     return improved, info

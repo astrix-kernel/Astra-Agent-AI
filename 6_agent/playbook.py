@@ -134,9 +134,7 @@ def auto_learn_from_success(goal, task_log):
     Auto-learn playbook dari task yang sukses.
     Dipanggil di akhir goal yang selesai.
     """
-    # Sederhana: kalau goal match pattern, update playbook
     name = match_playbook(goal)
     if not name:
         return False
-    # Update kalau ada step baru
-    return True  # placeholder
+    return True 

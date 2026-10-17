@@ -2,9 +2,8 @@
 import time, hashlib, json
 from pathlib import Path
 
-# Cache file content (biar nggak baca disk berulang)
 _file_cache = {}
-_cache_ttl = 60  # detik
+_cache_ttl = 60 
 
 
 def cached_read(path, read_fn):
@@ -24,19 +23,16 @@ def clear_cache():
     _file_cache.clear()
 
 
-# ============ AUTO MODEL ROUTER ============
 def route_model(task_desc, focus="chat"):
     """
     Pilih model otomatis berdasarkan task.
     Return: (model_key, reason)
     """
-    # Auto-route DIMATIKAN — selalu hormatin pilihan user di UI
     return None, "auto-route disabled (user pilih manual)"
 
 
 
 
-# ============ FAST MODE ============
 _fast_mode = False
 
 

@@ -19,7 +19,6 @@ def _keywords(text):
     for w in words:
         if w not in STOP_WORDS and len(w) >= 3:
             kws.add(w)
-    # Add identifier from path if any
     for m in re.findall(r'[\w/]+\.(c|h|s|asm|ld|mk)', text):
         kws.add(m)
     return kws
@@ -35,9 +34,8 @@ def find_relevant_files(task_desc, max_files=5, max_chars_per_file=3000):
         return []
 
     root = ASTRIX_ROOT
-    scored = []  # (score, path, content)
+    scored = [] 
 
-    # Scan only .c/.h/.s/.ld/Makefile files
     valid_ext = {".c", ".h", ".S", ".s", ".asm", ".ld", ".lds", ".mk"}
     valid_names = {"Makefile", "Kconfig", "Kbuild"}
 
@@ -49,7 +47,6 @@ def find_relevant_files(task_desc, max_files=5, max_chars_per_file=3000):
         if any(skip in str(p) for skip in [".git", "build/", "__pycache__", ".kilo", ".bak", ".backup-", ".old"]):
             continue
 
-        # Score from filename
         name_lower = p.name.lower()
         score = 0
         for kw in kws:
@@ -59,7 +56,6 @@ def find_relevant_files(task_desc, max_files=5, max_chars_per_file=3000):
                 score += 2
 
         if score == 0:
-            # Not necessarily irrelevant — check the contents
             try:
                 if p.stat().st_size > 100_000:
                     continue
@@ -134,4 +130,4 @@ def get_project_tree(max_depth=2, max_files_per_dir=15):
                 lines.append(f"{'  ' * depth}📄 {rel}")
 
     walk(root, 0)
-    return "\n".join(lines[:200])  # seal
+    return "\n".join(lines[:200]) 

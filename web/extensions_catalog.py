@@ -1,8 +1,6 @@
 """Astrix Extension Marketplace — 127 extensions yang beneran ngecek tool asli di sistem."""
 
-# (id, name, icon, color, bg, category, desc, check_type, check_target, install_pkg, prompt)
 EXTENSIONS_RAW = [
-    # === LANGUAGES (20) ===
     ("cpp", "C/C++ Compiler", "ph-file-c", "text-blue-400", "bg-blue-500/20", "language", "Kompilasi C/C++ via gcc/g++", "bin", "gcc", "gcc", "Compile C: `gcc file.c -o out && ./out`. C++: `g++ file.cpp -o out && ./out`. Read stderr on errors."),
     ("rust", "Rust", "ph-gear", "text-orange-500", "bg-orange-500/20", "language", "Cargo & rustc", "bin", "cargo", "rust", "Use `cargo new proj && cd proj && cargo run`, or `rustc file.rs -o out && ./out`."),
     ("go", "Go Engine", "ph-rocket", "text-sky-400", "bg-sky-500/20", "language", "Build & run Go", "bin", "go", "go", "Use `go run file.go` for scripts, or `go build file.go && ./file`."),
@@ -24,7 +22,6 @@ EXTENSIONS_RAW = [
     ("fortran", "Fortran", "ph-calculator", "text-blue-500", "bg-blue-500/20", "language", "gfortran", "bin", "gfortran", "gcc-fortran", "Use `gfortran f.f90 -o out && ./out`."),
     ("cobol", "COBOL", "ph-floppy-disk", "text-gray-400", "bg-gray-500/20", "language", "GNU COBOL", "bin", "cobc", "gnucobol", "Use `cobc -x f.cob && ./f`."),
 
-    # === FRONTEND (12) ===
     ("node", "Node.js", "ph-hexagon", "text-green-500", "bg-green-500/20", "frontend", "Node.js runtime", "bin", "node", "nodejs", "Run JS: `node file.js`. npm: `npm init && npm install pkg`."),
     ("deno", "Deno", "ph-hexagon", "text-gray-200", "bg-gray-500/20", "frontend", "Deno runtime", "bin", "deno", "deno", "Run TypeScript: `deno run file.ts`."),
     ("bun", "Bun", "ph-bread", "text-orange-300", "bg-orange-500/20", "frontend", "Bun ultra-fast runtime", "bin", "bun", "bun-bin", "Run: `bun run file.ts`. Install: `bun install`."),
@@ -38,7 +35,6 @@ EXTENSIONS_RAW = [
     ("astro", "Astro", "ph-rocket-launch", "text-orange-500", "bg-orange-500/20", "frontend", "Astro framework", "bin", "astro", "astro", "New: `npm create astro@latest`."),
     ("angular", "Angular", "ph-shield", "text-red-500", "bg-red-500/20", "frontend", "Angular framework", "bin", "ng", "@angular/cli", "New: `ng new app`. Serve: `ng serve`."),
 
-    # === BACKEND (10) ===
     ("fastapi", "FastAPI", "ph-lightning", "text-teal-400", "bg-teal-500/20", "backend", "FastAPI web framework", "pyimport", "fastapi", "fastapi", "Create: `from fastapi import FastAPI`. Run: `uvicorn app:app --reload`."),
     ("flask", "Flask", "ph-flask", "text-gray-300", "bg-gray-500/20", "backend", "Flask framework", "pyimport", "flask", "flask", "Create: `from flask import Flask`. Run: `flask run`."),
     ("django", "Django", "ph-leaf", "text-green-700", "bg-green-500/20", "backend", "Django framework", "bin", "django-admin", "django", "Start: `django-admin startproject mysite`. Run: `python manage.py runserver`."),
@@ -50,7 +46,6 @@ EXTENSIONS_RAW = [
     ("spring", "Spring Boot", "ph-leaf", "text-green-500", "bg-green-500/20", "backend", "Spring Boot Java", "bin", "mvn", "maven", "New: `curl https://start.spring.io/starter.zip -o app.zip`. Run: `./mvnw spring-boot:run`."),
     ("gin", "Gin", "ph-martini", "text-cyan-400", "bg-cyan-500/20", "backend", "Gin Go framework", "bin", "go", "go", "Create: `import \"github.com/gin-gonic/gin\"`. Run: `go run main.go`."),
 
-    # === DATABASES (12) ===
     ("sqlite", "SQLite", "ph-database", "text-blue-400", "bg-blue-500/20", "database", "SQLite embedded DB", "bin", "sqlite3", "sqlite", "Open: `sqlite3 db.sqlite`. Query: `.tables`, `SELECT * FROM users;`."),
     ("postgresql", "PostgreSQL", "ph-elephant", "text-blue-500", "bg-blue-500/20", "database", "PostgreSQL server & client", "bin", "psql", "postgresql", "Connect: `psql -h localhost -U user -d db`."),
     ("mysql", "MySQL", "ph-database", "text-orange-400", "bg-orange-500/20", "database", "MySQL server", "bin", "mysql", "mariadb", "Connect: `mysql -u user -p db`. Query: `SHOW TABLES;`."),
@@ -64,7 +59,6 @@ EXTENSIONS_RAW = [
     ("duckdb", "DuckDB", "ph-duck", "text-yellow-400", "bg-yellow-500/20", "database", "DuckDB analytics", "bin", "duckdb", "duckdb", "Open: `duckdb db.duckdb`. Query: `SELECT * FROM table;`."),
     ("elasticsearch", "Elasticsearch", "ph-magnifying-glass", "text-yellow-500", "bg-yellow-500/20", "database", "Elasticsearch search", "bin", "curl", "curl", "Query: `curl -X GET 'localhost:9200/_cat/indices'`."),
 
-    # === DEVOPS (15) ===
     ("docker", "Docker", "ph-cube", "text-blue-500", "bg-blue-500/20", "devops", "Container platform", "bin", "docker", "docker", "Build: `docker build -t name .`. Run: `docker run -it name`."),
     ("podman", "Podman", "ph-seal", "text-purple-500", "bg-purple-500/20", "devops", "Rootless containers", "bin", "podman", "podman", "Use `podman build` / `podman run` (same as docker)."),
     ("kubernetes", "Kubernetes", "ph-sailboat", "text-blue-600", "bg-blue-500/20", "devops", "K8s orchestration", "bin", "kubectl", "kubectl", "Use `kubectl get pods`, `kubectl apply -f manifest.yaml`."),
@@ -81,7 +75,6 @@ EXTENSIONS_RAW = [
     ("argocd", "ArgoCD", "ph-git-branch", "text-orange-500", "bg-orange-500/20", "devops", "GitOps CD", "bin", "argocd", "argocd", "Login: `argocd login`. Sync: `argocd app sync myapp`."),
     ("gh", "GitHub CLI", "ph-github-logo", "text-white", "bg-white/10", "devops", "GitHub command line", "bin", "gh", "github-cli", "Auth: `gh auth login`. Use `gh repo create`, `gh pr list`."),
 
-    # === AI/ML (12) ===
     ("pytorch", "PyTorch", "ph-fire", "text-orange-500", "bg-orange-500/20", "ai", "PyTorch deep learning", "pyimport", "torch", "torch", "Import: `import torch`. Use `torch.tensor`, `torch.nn`, `torch.cuda.is_available()`."),
     ("tensorflow", "TensorFlow", "ph-graph", "text-orange-600", "bg-orange-500/20", "ai", "TensorFlow", "pyimport", "tensorflow", "tensorflow", "Import: `import tensorflow as tf`. Use `tf.keras.Sequential([...])`."),
     ("huggingface", "HuggingFace", "ph-smiley", "text-yellow-400", "bg-yellow-500/20", "ai", "Transformers library", "pyimport", "transformers", "transformers", "Use `from transformers import pipeline`. `pipeline('sentiment-analysis')('text')`."),
@@ -95,7 +88,6 @@ EXTENSIONS_RAW = [
     ("nltk", "NLTK", "ph-text-aa", "text-green-400", "bg-green-500/20", "ai", "NLP toolkit", "pyimport", "nltk", "nltk", "Use `import nltk`. `nltk.word_tokenize('text')`."),
     ("transformers", "Transformers", "ph-brain", "text-yellow-400", "bg-yellow-500/20", "ai", "HuggingFace Transformers", "pyimport", "transformers", "transformers", "Use `from transformers import AutoModel, AutoTokenizer`."),
 
-    # === DATA (10) ===
     ("pandas", "Pandas", "ph-table", "text-purple-500", "bg-purple-500/20", "data", "Data manipulation", "pyimport", "pandas", "pandas", "Use `import pandas as pd`. `df = pd.read_csv('file.csv')`, `df.head()`."),
     ("numpy", "NumPy", "ph-function", "text-blue-500", "bg-blue-500/20", "data", "Numerical arrays", "pyimport", "numpy", "numpy", "Use `import numpy as np`. `arr = np.array([1,2,3])`."),
     ("polars", "Polars", "ph-lightning", "text-cyan-500", "bg-cyan-500/20", "data", "Fast DataFrames", "pyimport", "polars", "polars", "Use `import polars as pl`. `df = pl.read_csv('file.csv')`."),
@@ -107,7 +99,6 @@ EXTENSIONS_RAW = [
     ("dask", "Dask", "ph-stack", "text-yellow-500", "bg-yellow-500/20", "data", "Parallel computing", "pyimport", "dask", "dask", "Use `import dask.dataframe as dd`. `df = dd.read_csv('*.csv')`."),
     ("ray", "Ray", "ph-rays", "text-blue-500", "bg-blue-500/20", "data", "Distributed computing", "pyimport", "ray", "ray", "Use `import ray; ray.init()`. `@ray.remote def f(): ...`."),
 
-    # === SECURITY (10) ===
     ("nmap", "Nmap", "ph-radar", "text-red-500", "bg-red-500/20", "security", "Port scanner", "bin", "nmap", "nmap", "Scan: `nmap -sV -O target.com`. Use only on authorized systems."),
     ("wireshark", "Wireshark", "ph-wifi-high", "text-blue-500", "bg-blue-500/20", "security", "Packet analyzer", "bin", "tshark", "wireshark-cli", "CLI: `tshark -i eth0 -w capture.pcap`."),
     ("tcpdump", "tcpdump", "ph-packet", "text-green-500", "bg-green-500/20", "security", "Packet capture", "bin", "tcpdump", "tcpdump", "Capture: `tcpdump -i any -w out.pcap`."),
@@ -119,7 +110,6 @@ EXTENSIONS_RAW = [
     ("john", "John the Ripper", "ph-user", "text-red-500", "bg-red-500/20", "security", "Password cracker", "bin", "john", "john", "Crack: `john --wordlist=rockyou.txt hashes.txt`."),
     ("aircrack", "Aircrack-ng", "ph-wifi-high", "text-green-500", "bg-green-500/20", "security", "WiFi security", "bin", "aircrack-ng", "aircrack-ng", "Use `aircrack-ng capture.cap -w wordlist.txt`. Only on authorized networks."),
 
-    # === TESTING (8) ===
     ("pytest", "Pytest", "ph-flask", "text-green-500", "bg-green-500/20", "testing", "Python testing", "bin", "pytest", "python-pytest", "Run tests: `pytest`. Specific: `pytest tests/test_x.py::test_y`."),
     ("jest", "Jest", "ph-joker", "text-red-500", "bg-red-500/20", "testing", "JS testing", "bin", "jest", "jest", "Run: `jest`, or `jest --watch`."),
     ("vitest", "Vitest", "ph-lightning", "text-yellow-500", "bg-yellow-500/20", "testing", "Vite test runner", "bin", "vitest", "vitest", "Run: `vitest`, or `vitest run`."),
@@ -129,7 +119,6 @@ EXTENSIONS_RAW = [
     ("k6", "k6 Load Test", "ph-gauge", "text-purple-500", "bg-purple-500/20", "testing", "Load testing", "bin", "k6", "k6", "Run: `k6 run script.js`."),
     ("artillery", "Artillery", "ph-target", "text-orange-500", "bg-orange-500/20", "testing", "Load testing", "bin", "artillery", "artillery", "Run: `artillery run load-test.yml`."),
 
-    # === MEDIA (8) ===
     ("ffmpeg", "FFmpeg", "ph-film-strip", "text-blue-500", "bg-blue-500/20", "media", "Video/audio toolkit", "bin", "ffmpeg", "ffmpeg", "Convert: `ffmpeg -i in.mp4 out.webm`. Extract audio: `ffmpeg -i in.mp4 -vn out.mp3`."),
     ("imagemagick", "ImageMagick", "ph-image", "text-purple-500", "bg-purple-500/20", "media", "Image manipulation", "bin", "convert", "imagemagick", "Convert: `convert in.png -resize 800x600 out.jpg`."),
     ("pandoc", "Pandoc", "ph-file-text", "text-blue-400", "bg-blue-500/20", "media", "Document converter", "bin", "pandoc", "pandoc", "Convert: `pandoc in.md -o out.pdf`. Many formats supported."),
@@ -139,7 +128,6 @@ EXTENSIONS_RAW = [
     ("optipng", "OptiPNG", "ph-image", "text-green-500", "bg-green-500/20", "media", "PNG optimizer", "bin", "optipng", "optipng", "Optimize: `optipng -o7 image.png`."),
     ("handbrake", "HandBrake CLI", "ph-film-strip", "text-orange-500", "bg-orange-500/20", "media", "Video transcoder", "bin", "HandBrakeCLI", "handbrake-cli", "Transcode: `HandBrakeCLI -i in.mp4 -o out.mkv --preset Fast 1080p30`."),
 
-    # === SYSTEM (10) ===
     ("htop", "htop", "ph-activity", "text-green-500", "bg-green-500/20", "system", "Process monitor", "bin", "htop", "htop", "Use `htop` for interactive process viewer."),
     ("btop", "btop", "ph-activity", "text-blue-500", "bg-blue-500/20", "system", "Modern monitor", "bin", "btop", "btop", "Use `btop` for beautiful resource monitor."),
     ("ripgrep", "ripgrep", "ph-magnifying-glass", "text-blue-500", "bg-blue-500/20", "system", "Fast grep", "bin", "rg", "ripgrep", "Search: `rg 'pattern' path/`. `rg -t py 'def '`."),

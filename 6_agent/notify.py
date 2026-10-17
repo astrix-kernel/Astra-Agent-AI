@@ -26,12 +26,10 @@ def desktop_notify(title, body, urgency="normal"):
 def play_sound(kind="done"):
     """Play sound-fallback to various players."""
 
-    # Search sound files
     sound_dir = os.path.expanduser("~/.astrix-agent/sounds")
     os.makedirs(sound_dir, exist_ok=True)
     sound_file = os.path.join(sound_dir, f"{kind}.oga")
 
-    # If the file does not exist, use the sound system
     if not os.path.exists(sound_file):
         for candidate in [
             "/usr/share/sounds/freedesktop/stereo/complete.oga",
@@ -45,7 +43,6 @@ def play_sound(kind="done"):
     if not os.path.exists(sound_file):
         return False
 
-    # Try out different players
     for player in ["paplay", "pw-play", "aplay", "mpv", "ffplay"]:
         if _has(player):
             try:

@@ -1,11 +1,12 @@
-"""Auto-checkpoint git — commit tiap N edit biar bisa rollback."""
+"""Auto-checkpoint git-commit every N edit so it can rollback."""
+
 import subprocess, time
 from pathlib import Path
 
 from config import ASTRIX_ROOT
 _counter = {"count": 0, "last_commit": 0}
-CHECKPOINT_EVERY = 5  # setiap 5 edit
-MIN_INTERVAL = 120    # minimal 2 menit antar commit
+CHECKPOINT_EVERY = 5 
+MIN_INTERVAL = 120   
 
 
 def _git(*args):
@@ -19,21 +20,20 @@ def _git(*args):
 
 
 def checkpoint(label="auto"):
-    """Bikin checkpoint git kalau ada perubahan."""
+    """Make a git checkpoint if there are changes."""
+
     code, out, err = _git("status", "--porcelain")
     if code != 0:
         return None
     if not out.strip():
-        return None  # gak ada perubahan
+        return None 
 
-    # Add + commit
     _git("add", "-A")
     msg = f"[{label}] auto checkpoint {time.strftime('%H:%M:%S')}"
     code, out, err = _git("commit", "-m", msg, "--no-verify")
     if code != 0:
         return None
 
-    # Ambil hash
     code, out, err = _git("rev-parse", "--short", "HEAD")
     commit_hash = out.strip() if code == 0 else "?"
     print(f"  💾 Checkpoint: {commit_hash} ({msg})", flush=True)
@@ -42,7 +42,8 @@ def checkpoint(label="auto"):
 
 
 def maybe_checkpoint():
-    """Auto-checkpoint kalau udah cukup banyak edit."""
+    """Auto-checkpoint if you have enough edits."""
+
     _counter["count"] += 1
     now = time.time()
     if (_counter["count"] >= CHECKPOINT_EVERY and

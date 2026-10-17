@@ -13,18 +13,13 @@ from executor import execute_task
 def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
     """Main entry: kerjakan goal besar sampai selesai."""
 
-    # Cek ada state lama?
     state = load_state()
 
-    # Pastikan di branch astrix-agent
     try:
         ensure_branch()
     except Exception:
         pass
 
-    # JANGAN auto-reset — biar resume terus walau kata beda
-    # Kecuali user explicit /reset
-    # === PATCH: force_new — bypass guard, paksa goal baru ===
     if force_new and state:
         if verbose:
             print(f"\n🆕 Goal baru (mengganti: '{state.get('goal', '')[:50]}...')\n")
@@ -43,7 +38,6 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
             if verbose:
                 print(f"\n📋 Resume goal: '{goal[:60]}...'\n")
 
-    # Kalau belum ada state, planning dulu
     if not state:
         if verbose:
             print(f"\n╔════════════════════════════════════════╗")
@@ -80,7 +74,6 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
         state["sessions"] = state.get("sessions", 1) + 1
         save_state(state)
 
-    # Loop eksekusi task
     tasks_done_this_session = 0
     while not is_complete(state):
         if tasks_done_this_session >= max_tasks_per_session:
@@ -104,7 +97,6 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
             save_state(state)
             tasks_done_this_session += 1
 
-            # GIT CHECKPOINT + AUTO COMMIT + PUSH setiap 5 task
             if tasks_done_this_session % 5 == 0:
                 try:
                     cp = auto_commit_and_push(label=f"task-{task['id']}", push=True)
@@ -118,7 +110,6 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
                     if verbose:
                         print(f"  ⚠️  Auto-commit gagal: {e}")
 
-            # Jeda paksa tiap 10 task — biar nggak kena rate limit
             if tasks_done_this_session % 10 == 0:
                 import time as _t
                 print(f"\n  ☕ Jeda 30s (setiap 10 task selesai)...\n")
@@ -138,12 +129,9 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
         elif status == "max_step":
             save_state(state)
             append_progress(f"⚠️ Task #{task['id']} MAX STEP: {task['desc']}")
-            # Coba auto-recovery: kasih task ke user buat diputuskan
             if verbose:
                 print(f"\n  ⚠️ Task #{task['id']} kena max step.\n")
-            # Mark failed, tambah task recovery di akhir
             mark_failed(state, "max step exceeded")
-            # Skip ke task berikutnya
             state["current_idx"] += 1
             save_state(state)
 
@@ -156,20 +144,17 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
             except Exception:
                 pass
 
-            # CASCADE: pecah task jadi 3 sub-task kalau belum pernah dicoba
             if not task.get("cascade_tried"):
                 if verbose:
                     print(f"\n  🔄 Cascade: pecah task #{task['id']} jadi sub-task...\n")
                 task["cascade_tried"] = True
 
-                # Bikin 3 sub-task
                 import uuid
                 subs = [
                     f"[Cascade {task['id']}.1] Analisis ulang: baca file terkait, identifikasi blocker",
                     f"[Cascade {task['id']}.2] Coba pendekatan alternatif untuk: {task['desc'][:80]}",
                     f"[Cascade {task['id']}.3] Verifikasi hasil alternatif + build",
                 ]
-                # Insert setelah task saat ini
                 insert_at = state["current_idx"] + 1
                 for i, sub_desc in enumerate(subs):
                     new_id = max([t["id"] for t in state["tasks"]], default=0) + 1
@@ -181,7 +166,6 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
                         "notes": "",
                         "cascade_parent": task["id"],
                     })
-                # Renumber
                 for i, t in enumerate(state["tasks"], 1):
                     t["id"] = i
                 mark_failed(state, f"error: {info[:100]} (di-cascade)")
@@ -189,19 +173,15 @@ def run_goal(goal, verbose=True, max_tasks_per_session=50, force_new=False):
                 save_state(state)
                 continue
             else:
-                # Sudah pernah cascade → beneran gagal, stop
                 return f"❌ Task #{task['id']} gagal permanen: {info}\n\nState tersimpan di ~/.astrix-agent/state.json"
 
         else:
-            # no_task atau unknown
             break
 
-    # Selesai semua
     if is_complete(state):
         s = summarize(state)
         append_progress(f"🎉 GOAL SELESAI: {state['goal']}\n  Total task: {s['total']}, done: {s['done']}")
 
-        # Final checkpoint + auto-commit + push
         try:
             cp = auto_commit_and_push(label="goal-complete", push=True)
             if cp.get("ok") and cp.get("hash"):

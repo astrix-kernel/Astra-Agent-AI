@@ -1,7 +1,7 @@
-"""Chain-of-Thought reasoning untuk agent."""
+"""Chain-of-Thought reasoning for agents."""
+
 
 REASONING_TEMPLATE = """
-## 🧠 CARA BERPIKIR (WAJIB)
 
 Sebelum jawab atau eksekusi, MIKIR DULU dalam 3 langkah:
 
@@ -23,7 +23,6 @@ Sebelum jawab atau eksekusi, MIKIR DULU dalam 3 langkah:
 
 Setelah 3 langkah ini, BARU eksekusi/jawab.
 
-## CONTOH
 
 User: "kok kernel panic pas init driver?"
 

@@ -1,4 +1,5 @@
-"""Iterative refinement — draft, kritik, improve."""
+"""Iterative refinement — draft, critique, improve."""
+
 
 
 DRAFT_PROMPT = """Kasih jawaban DRAFT (bisa kasar, yang penting arahnya bener)."""
@@ -20,7 +21,8 @@ Output: jawaban final (bukan kritik baru).
 
 
 def should_refine(user_msg, focus="chat"):
-    """Cek apakah perlu iterative refinement."""
+    """Check whether iterative refinement is needed."""
+
     if focus != "chat":
         return False
     m = user_msg.lower()
@@ -37,7 +39,6 @@ def refine_once(messages, rounds=1):
     """
     from llm import call_llm
 
-    # 1. Draft
     draft = call_llm(messages, max_tokens=1500, temperature=0.5)
     if not draft or len(draft) < 100:
         return draft
@@ -45,14 +46,12 @@ def refine_once(messages, rounds=1):
     current = draft
 
     for i in range(rounds):
-        # 2. Kritik
         critique_msgs = [
             {"role": "system", "content": CRITIQUE_PROMPT},
             {"role": "user", "content": f"Task asli: {messages[-1]['content'][:500]}\n\nDraft:\n{current[:2000]}"},
         ]
         critique = call_llm(critique_msgs, max_tokens=500, temperature=0.3)
 
-        # 3. Improve
         improve_msgs = [
             {"role": "system", "content": IMPROVE_PROMPT},
             {"role": "user", "content": f"Task: {messages[-1]['content'][:500]}\n\nDraft:\n{current[:2000]}\n\nKritik:\n{critique[:800]}"},

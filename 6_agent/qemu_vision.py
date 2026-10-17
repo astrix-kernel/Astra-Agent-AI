@@ -1,4 +1,5 @@
 """QEMU Vision — launch QEMU, screenshot, analyze visual."""
+
 import os, subprocess, time, signal, shutil, socket
 from pathlib import Path
 import numpy as np
@@ -45,7 +46,6 @@ def launch(disk_image, ram="512", boot_timeout=15, extra=None):
 
     disk = Path(disk_image)
     if not disk.exists():
-        # Coba relatif ke ASTRIX_ROOT
         from config import ASTRIX_ROOT
         disk = ASTRIX_ROOT / disk_image
         if not disk.exists():
@@ -81,10 +81,10 @@ def launch(disk_image, ram="512", boot_timeout=15, extra=None):
 
 
 def stop():
-    """Stop QEMU — coba pid, pgrep, dan pkill."""
+    """Stop QEMU — try pid, pgrep, and pkill."""
+
     killed = False
 
-    # 1. Dari pidfile
     if QEMU_PID.exists():
         try:
             pid = int(QEMU_PID.read_text().strip())
@@ -102,7 +102,6 @@ def stop():
         except Exception:
             pass
 
-    # 2. pgrep by process name
     if not killed:
         for pattern in ["qemu-system-x86_64", "qemu-system"]:
             r = subprocess.run(["pgrep", "-f", pattern],

@@ -8,7 +8,6 @@ def safe_translate(text):
     text = text.strip()
     if not text or len(text) < 2: return text
     try:
-        # Cuma translate kalau ada huruf
         if not re.search(r'[a-zA-Z]', text): return text
         return translator.translate(text)
     except:
@@ -23,7 +22,6 @@ def process_file(filepath):
     new_lines = []
     
     for line in lines:
-        # 1. Translate Standalone Comment (# ...)
         m_standalone = re.match(r'^(\s*#\s*)(.+)$', line)
         if m_standalone:
             prefix = m_standalone.group(1)
@@ -35,16 +33,14 @@ def process_file(filepath):
             new_lines.append(f"{prefix}{trans}")
             continue
             
-        # 2. Translate Inline Comment (code # ...)
-        if " # " in line:
-            parts = line.split(" # ", 1)
+        if "
+            parts = line.split("
             code_part = parts[0]
             comment = parts[1]
             trans = safe_translate(comment)
-            new_lines.append(f"{code_part} # {trans}")
+            new_lines.append(f"{code_part}
             continue
             
-        # 3. Translate Single-Line Docstring ("""text""")
         m_doc = re.match(r'^(\s*(?:"""|\'\'\'))(.*?)((?:"""|\'\'\')(?:\s*))$', line)
         if m_doc:
             prefix = m_doc.group(1)
@@ -55,13 +51,11 @@ def process_file(filepath):
                 new_lines.append(f"{prefix}{trans}{suffix}")
                 continue
                 
-        # Kalo bukan komentar/docstring, biarin apa adanya (biar kode aman)
         new_lines.append(line)
 
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write('\n'.join(new_lines))
 
-# Jalanin ke semua folder
 folders = ["6_agent", "web"]
 for folder in folders:
     for root, _, files in os.walk(folder):

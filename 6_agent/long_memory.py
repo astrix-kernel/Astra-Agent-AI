@@ -1,4 +1,5 @@
-"""Long-term memory — inget antar sesi/hari."""
+"""Long-term memory — inget between sessions/day."""
+
 import json, time
 from pathlib import Path
 from config import LOG_DIR
@@ -9,11 +10,11 @@ MEM_FILE = LOG_DIR / "long_memory.json"
 def _load():
     if not MEM_FILE.exists():
         return {
-            "preferences": [],     # preferensi user
-            "decisions": [],       # keputusan desain
-            "patterns": [],        # pattern kode project
-            "facts": [],           # fakta tentang project
-            "learnings": [],       # pelajaran dari pengalaman
+            "preferences": [],    
+            "decisions": [],      
+            "patterns": [],       
+            "facts": [],          
+            "learnings": [],      
         }
     try:
         return json.loads(MEM_FILE.read_text())
@@ -61,7 +62,8 @@ def remember_learning(text):
 
 
 def search(query, limit=10):
-    """Cari di semua kategori."""
+    """Browse All Categories"""
+
     m = _load()
     q = query.lower()
     results = []
@@ -74,7 +76,8 @@ def search(query, limit=10):
 
 
 def build_memory_block(max_items=15):
-    """Format memory sebagai string buat inject ke prompt."""
+    """Format memory as a string to inject to the prompt."""
+
     m = _load()
     parts = []
 
@@ -87,7 +90,7 @@ def build_memory_block(max_items=15):
         ("facts", "📖 FAKTA PROJECT"),
         ("learnings", "💡 PELAJARAN"),
     ]:
-        items = m.get(cat, [])[-5:]  # max 5 terakhir
+        items = m.get(cat, [])[-5:] 
         if items:
             parts.append(f"## {label}")
             for item in items:
@@ -106,14 +109,12 @@ def extract_and_save(user_msg, agent_response):
     import re
     u = user_msg.lower()
 
-    # Detect preferensi
     if any(k in u for k in ["gw suka", "gue suka", "aku suka", "saya suka",
                              "gw prefer", "gue prefer", "pake", "pakai",
                              "jangan pake", "jangan pakai"]):
         if len(user_msg) < 300:
             remember_preference(user_msg[:250])
 
-    # Detect keputusan
     if any(k in u for k in ["keputusan", "gw pilih", "gue pilih", "final",
                              "tentukan", "kita pakai"]):
         if len(user_msg) < 300:

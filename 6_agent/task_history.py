@@ -1,4 +1,5 @@
-"""Simpen history task yang udah dikerjain."""
+"""Simpen history task that has been worked on."""
+
 import json, time
 from pathlib import Path
 from config import LOG_DIR
@@ -21,7 +22,8 @@ def save(d):
 
 
 def start_task(desc):
-    """Tandai mulai task baru."""
+    """Mark the start of a new task."""
+
     d = load()
     d["current_session"] = {
         "desc": desc,
@@ -33,7 +35,8 @@ def start_task(desc):
 
 
 def log_file_change(path, action="edit"):
-    """Log file yang diubah."""
+    """Changed log file."""
+
     d = load()
     if d.get("current_session"):
         d["current_session"]["files_touched"].append({
@@ -45,20 +48,22 @@ def log_file_change(path, action="edit"):
 
 
 def finish_task(summary=""):
-    """Tandai task selesai."""
+    """Mark task complete."""
+
     d = load()
     if d.get("current_session"):
         d["current_session"]["status"] = "done"
         d["current_session"]["finished"] = time.time()
         d["current_session"]["summary"] = summary
         d["tasks"].append(d["current_session"])
-        d["tasks"] = d["tasks"][-30:]  # keep 30 terakhir
+        d["tasks"] = d["tasks"][-30:] 
         d["current_session"] = None
         save(d)
 
 
 def recent_summary(n=5):
-    """Ringkas task terakhir buat prompt."""
+    """Summarize the last task to create a prompt."""
+
     d = load()
     tasks = d.get("tasks", [])[-n:]
     if not tasks:

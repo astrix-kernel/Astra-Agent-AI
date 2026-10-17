@@ -38,7 +38,6 @@ def extract_from_turn(user_msg, agent_response):
     """Auto-extract topik dari turn."""
     u = user_msg.lower()
 
-    # Detect topik project
     topics = []
     if "vtx" in u or "vtx_engine" in u:
         topics.append(("vtx_engine", user_msg[:200], "high"))
@@ -53,9 +52,7 @@ def extract_from_turn(user_msg, agent_response):
     if "error" in u or "bug" in u or "panic" in u:
         topics.append(("debug", user_msg[:200], "high"))
 
-    # Cuma tambah kalau ada topik
     if not topics and len(user_msg) > 20:
-        # Fallback: simpan sebagai "chat" topik
         topics.append(("chat", user_msg[:200], "low"))
 
     for t in topics:
@@ -68,7 +65,6 @@ def build_working_block(max_items=8):
     if not data:
         return ""
 
-    # Ambil 8 terakhir, dedupe by topic
     seen = set()
     recent = []
     for item in reversed(data):

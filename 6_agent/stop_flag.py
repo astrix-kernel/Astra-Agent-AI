@@ -2,7 +2,7 @@
 import threading
 
 _lock = threading.Lock()
-_stop_flags = {}  # {session_id: True/False}
+_stop_flags = {} 
 _current = {"sid": None}
 
 def set_current(sid):

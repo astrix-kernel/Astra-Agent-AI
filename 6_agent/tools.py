@@ -2,7 +2,8 @@ import difflib as _difflib
 import os
 import re
 from web_tools import web_search, browse_url
-"""Tools agent — baca/tulis/edit/hapus + verifikasi + rollback."""
+"""Tools agent — read/write/edit/delete + verification + rollback."""
+
 import shutil, subprocess, time
 from pathlib import Path
 from config import (
@@ -13,7 +14,8 @@ from config import (
 )
 
 def _emit(event_type, payload):
-    """Event emitter untuk broadcast file change (opsional)."""
+    """Event emitter for broadcast file change (optional)."""
+
     try:
         import sys
         from pathlib import Path as _P
@@ -23,7 +25,7 @@ def _emit(event_type, payload):
         from server import broadcast
         broadcast({"kind": event_type, **payload}, event_type)
     except Exception:
-        pass  # Gak ada server, skip aja
+        pass 
 
 
 def log(msg):
@@ -32,7 +34,8 @@ def log(msg):
         f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
 
 def safe_path(path):
-    """Pastikan path ada di dalam ASTRIX_ROOT."""
+    """Make sure the path is inside astrix_root."""
+
     if not path:
         path = "."
     if path.startswith("/") or path.startswith("~"):
@@ -57,8 +60,6 @@ def _verify_syntax(path_obj):
     except subprocess.TimeoutExpired:
         return False, "verifikasi timeout"
 
-# ============ TOOLS ============
-# Semua pakai parameter `path` biar match dengan output LLM.
 
 def list_dir(path="."):
     p = safe_path(path)
@@ -68,7 +69,6 @@ def list_dir(path="."):
     for child in sorted(p.iterdir()):
         if child.name.startswith("."):
             continue
-        # Skip backup folders
         if any(pat in child.name for pat in [".bak", ".backup-", ".old", ".corrupted", ".recovered"]):
             continue
         if child.is_dir():
@@ -78,7 +78,8 @@ def list_dir(path="."):
     return f"Isi {path}:\n" + "\n".join(lines) if lines else f"{path} kosong"
 
 def read_file(path, offset=0, limit=0):
-    """Baca file, optional offset & limit (lines)."""
+    """Read the file, optional offset & limit (lines)."""
+
     p = safe_path(path)
     if not p.is_file():
         return f"ERROR: {path} bukan file"
@@ -105,7 +106,6 @@ def read_file(path, offset=0, limit=0):
 def create_file(path, content):
     p = safe_path(path)
     if p.exists():
-        # Kalau file sudah ada dan content > 0, izinkan overwrite (agent sering butuh ini)
         if content and len(content) > 50:
             p.write_text(content)
             log(f"OVERWRITE {path} ({len(content)}b)")
@@ -171,7 +171,8 @@ def delete_file(path):
     return f"OK: {path} dipindah ke trash"
 
 def grep(pattern, path=".", max_hits=25):
-    """Cari pattern (regex) di file/folder. Return: file:line: content."""
+    """Look for patterns (regex) in files/folders. Return: file: line: content."""
+
     import re as _re
     try:
         p = Path(path) if Path(path).is_absolute() else ASTRIX_ROOT / path
@@ -183,7 +184,6 @@ def grep(pattern, path=".", max_hits=25):
         except _re.error as e:
             return f"ERROR regex '{pattern}': {e}"
 
-        # Kumpulin file target
         files = []
         if p.is_file():
             files = [p]
@@ -196,7 +196,7 @@ def grep(pattern, path=".", max_hits=25):
                         files.append(Path(root) / fn)
 
         hits = []
-        for f in files[:500]:  # max 500 file
+        for f in files[:500]: 
             try:
                 for i, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
                     if regex.search(line):
@@ -233,21 +233,19 @@ def run_command(cmd=None, command=None):
 
 
 def build_project(target="build", jobs=4, timeout=180):
-    """Jalankan make <target> -j<jobs>, return status + output ringkas."""
+    """Run make <target> -j<jobs>, return status + output concise."""
+
     cmd = f"make {target} -j{jobs}"
     try:
         r = subprocess.run(cmd, shell=True, cwd=ASTRIX_ROOT,
                            capture_output=True, text=True, timeout=timeout)
         out = (r.stdout + r.stderr)
 
-        # Cari error line
         errors = [l for l in out.split("\n") if "error:" in l.lower() or "fatal error" in l.lower()]
         warnings = [l for l in out.split("\n") if "warning:" in l.lower()]
 
-        # Cek hasil
         status = "SUCCESS" if r.returncode == 0 else "FAILED"
 
-        # Cek BOOTX64.EFI
         boot_path = ASTRIX_ROOT / "BOOTX64.EFI"
         efi_exists = boot_path.exists()
         efi_size = boot_path.stat().st_size if efi_exists else 0
@@ -262,7 +260,6 @@ BOOTX64.EFI: {'ADA ' + str(efi_size) + ' bytes' if efi_exists else 'TIDAK ADA'}"
         if warnings and len(warnings) <= 5:
             summary += "\n\n=== WARNINGS ===\n" + "\n".join(warnings[:5])
 
-        # Tail output kalau sukses
         if r.returncode == 0:
             tail = "\n".join(out.split("\n")[-10:])
             summary += f"\n\n=== TAIL OUTPUT ===\n{tail}"
@@ -277,13 +274,15 @@ BOOTX64.EFI: {'ADA ' + str(efi_size) + ' bytes' if efi_exists else 'TIDAK ADA'}"
 
 def run_tests_tool():
     """Jalanin test suite project."""
+
     from test_runner import run_tests, format_report
     result = run_tests()
     return format_report(result)
 
 
 def detect_tests_tool():
-    """Cek apakah project punya test."""
+    """Check whether the project has a test."""
+
     from test_runner import detect_test_command
     cmd, desc = detect_test_command()
     if cmd:
@@ -292,10 +291,10 @@ def detect_tests_tool():
 
 
 
-# ============ TOOLS BARU — File manipulation ============
 
 def append_to_file(path, content):
-    """Nambah content ke AKHIR file."""
+    """Add content to the END OF THE file."""
+
     p = safe_path(path)
     if not p.exists():
         return f"ERROR: {path} nggak ada (pakai create_file)"
@@ -307,14 +306,15 @@ def append_to_file(path, content):
     log(f"APPEND {path} ({len(content)}b)")
     ok, msg = _verify_syntax(p)
     if not ok:
-        p.write_text(old)  # rollback
+        p.write_text(old) 
         log(f"ROLLBACK APPEND {path}: {msg}")
         return f"ERROR: syntax gagal, rollback.\n{msg}"
     return f"OK: append {len(content)}b ke {path}, {msg}"
 
 
 def insert_at_line(path, line_num, content):
-    """Insert content di line_num (1-indexed)."""
+    """Insert content in line_num (1-indexed)."""
+
     p = safe_path(path)
     if not p.is_file():
         return f"ERROR: {path} nggak ada"
@@ -322,7 +322,6 @@ def insert_at_line(path, line_num, content):
     lines = old.split("\n")
     if line_num < 1 or line_num > len(lines) + 1:
         return f"ERROR: line_num harus 1-{len(lines) + 1}, dikasih {line_num}"
-    # Insert content (bisa multiple lines)
     new_lines = content.split("\n")
     lines[line_num - 1:line_num - 1] = new_lines
     new = "\n".join(lines)
@@ -337,7 +336,8 @@ def insert_at_line(path, line_num, content):
 
 
 def delete_lines(path, start_line, end_line=None):
-    """Hapus baris start_line..end_line (1-indexed, inclusive)."""
+    """Delete line start_line.. end_line (1-indexed, inclusive)."""
+
     p = safe_path(path)
     if not p.is_file():
         return f"ERROR: {path} nggak ada"
@@ -359,7 +359,8 @@ def delete_lines(path, start_line, end_line=None):
 
 
 def create_directory(path):
-    """Bikin folder baru (bisa nested)."""
+    """Create a new folder (can be nested)."""
+
     p = safe_path(path)
     if p.exists() and p.is_dir():
         return f"OK: {path} udah ada"
@@ -371,7 +372,8 @@ def create_directory(path):
 
 
 def rename_file(old_path, new_path):
-    """Rename / pindah file."""
+    """Rename / move files."""
+
     import shutil
     src = safe_path(old_path)
     dst = safe_path(new_path)
@@ -386,7 +388,8 @@ def rename_file(old_path, new_path):
 
 
 def read_lines(path, start=1, end=None, default_span=200):
-    """Baca range baris. Format output: [LINES X-Y of N] + numbered lines."""
+    """Read line range. Output format: [LINES X-Y of N] + numbered lines."""
+
     try:
         p = Path(path) if Path(path).is_absolute() else ASTRIX_ROOT / path
         if not p.exists():
@@ -481,11 +484,10 @@ def delete_file(path):
     return r
 
 
-# ============ TOOLS REGISTRY ============
-# === SELF-EDIT TOOLS (agent edit dirinya sendiri) ===
 
 def _check_self_path(path):
-    """Validasi path self-edit: harus di whitelist, bukan di block."""
+    """Validate self-edit path: should be whitelisted, not blocked."""
+
     from config import SELF_ROOT, SELF_EDIT_WHITELIST, SELF_EDIT_BLOCK
     path = str(path).strip()
     if path.startswith("/") or path.startswith("~"):
@@ -509,7 +511,8 @@ def _check_self_path(path):
 
 
 def self_read(path):
-    """Baca file astrix-ai buat self-edit."""
+    """Read theastrix-ai file for self-editing."""
+
     try:
         full = _check_self_path(path)
         if not full.exists():
@@ -524,7 +527,8 @@ def self_read(path):
 
 
 def self_replace(path, old_text, new_text):
-    """Replace dengan backup + syntax check + rollback."""
+    """Replace with backup + syntax check + rollback."""
+
     import shutil, time as _t, subprocess
     from config import SELF_ROOT
     try:
@@ -559,7 +563,8 @@ def self_replace(path, old_text, new_text):
 
 
 def self_write(path, content):
-    """Tulis file astrix-ai baru dengan safety."""
+    """Write a new astrix-ai file with safety."""
+
     import shutil, time as _t, subprocess
     from config import SELF_ROOT
     try:
@@ -585,6 +590,7 @@ def self_write(path, content):
 
 def self_restart(delay=15):
     """Schedule restart service (async)."""
+
     import subprocess
     try:
         cmd = f"sleep {delay} && systemctl --user restart astrix-web.service"
@@ -595,7 +601,8 @@ def self_restart(delay=15):
 
 
 def self_status():
-    """Cek git log + whitelist."""
+    """Check git log + whitelist."""
+
     import subprocess
     from config import SELF_ROOT, SELF_EDIT_WHITELIST
     try:
@@ -610,14 +617,12 @@ def self_status():
 
 
 
-# === SELF-EDIT TOOLS REGISTRATION ===
 
 
 
 
 
 
-# === TOOL GUARD: track file yang udah dibaca di sesi ini ===
 _read_files = set()
 _edited_files = set()
 
@@ -635,12 +640,12 @@ def reset_guard():
     _edited_files.clear()
 
 def guard_replace_text(path, old_text, new_text):
-    """Cek: harus baca file dulu sebelum edit + auto build verify."""
+    """Check: you must read the file first before editing + auto build verify."""
+
     if not was_read(path):
         return f"❌ ERROR: File `{path}` belum dibaca di sesi ini. Panggil `read_file` dulu sebelum edit.\n\nTool call: read_file(path='{path}')"
     result = replace_text(path, old_text, new_text)
 
-    # Auto-verify syntax kalau .c/.h
     if str(path).endswith((".c", ".h")) and "ERROR" not in str(result):
         try:
             verify = _verify_syntax(Path(path))
@@ -649,7 +654,6 @@ def guard_replace_text(path, old_text, new_text):
         except Exception:
             pass
 
-    # Auto-checkpoint tiap 5 edit
     try:
         from auto_checkpoint import maybe_checkpoint
         maybe_checkpoint()
@@ -669,9 +673,6 @@ def guard_insert_at_line(path, line_num, content):
     return insert_at_line(path, line_num, content)
 
 
-# ==========================================
-# PATCH: WEB SEARCH & BROWSE TOOL
-# ==========================================
 import urllib.parse
 import urllib.request
 import re
@@ -711,7 +712,6 @@ TOOLS = {
     "guard_insert_at_line": guard_insert_at_line,
 }
 
-# === Browser Tools ===
 try:
     from browser_agent import BROWSER_TOOLS
     TOOLS.update(BROWSER_TOOLS)

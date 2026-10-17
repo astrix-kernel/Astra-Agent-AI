@@ -19,38 +19,31 @@ def _bing_search(query, max_results=5):
         html = urllib.request.urlopen(req, timeout=15, context=_ctx).read().decode('utf-8', errors='ignore')
         
         results = []
-        # Split by b_algo blocks
         blocks = re.split(r'<li class="b_algo"', html)
         
-        for block in blocks[1:]:  # first skip (before the first block)
+        for block in blocks[1:]: 
             if len(results) >= max_results:
                 break
             
-            # Title & URL — Search <h2><a href="...">
             tm = re.search(r'<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', block, re.DOTALL)
             if not tm:
                 continue
             href = tm.group(1).replace('&amp;', '&')
             title = re.sub(r'<.*?>', '', tm.group(2)).strip()
             
-            # Decode Bing redirect URL (if applicable)
             if 'bing.com/ck/a' in href:
-                # Try extracting u parameters (base64 encoded URL)
                 um = re.search(r'[?&]u=a1([^&]+)', href)
                 if um:
                     try:
                         import base64
                         b64 = um.group(1)
-                        # Base64 pad
                         while len(b64) % 4: b64 += '='
                         decoded = base64.urlsafe_b64decode(b64).decode('utf-8', errors='ignore')
                         if decoded.startswith('http'):
                             href = decoded
                     except: pass
             
-            # Skip if it's still redirect or not http
             if 'bing.com' in href or not href.startswith('http'):
-                # Try looking for cite / visible URL in the block
                 cm = re.search(r'<cite[^>]*>([^<]+)</cite>', block)
                 if cm:
                     visible = cm.group(1).strip()
@@ -60,7 +53,6 @@ def _bing_search(query, max_results=5):
                 else:
                     continue
             
-            # Snippets — search <p class="b_lineclamp..."> or <p> first
             sm = re.search(r'<p[^>]*class="[^"]*b_lineclamp[^"]*"[^>]*>(.*?)</p>', block, re.DOTALL)
             if not sm:
                 sm = re.search(r'<div class="b_caption"[^>]*>.*?<p[^>]*>(.*?)</p>', block, re.DOTALL)
@@ -80,7 +72,6 @@ def _wiki_search(query, max_results=5):
     """Wikipedia API — most stable because of THE OFFICIAL API."""
 
     try:
-        # Try Indonesia first, fallback to English
         for lang in ['id', 'en']:
             url = f"https://{lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + urllib.parse.quote(query) + f"&format=json&srlimit={max_results}"
             req = urllib.request.Request(url, headers={'User-Agent': 'AstrixAI/1.0 (Local)'})
@@ -135,17 +126,14 @@ def _duckduckgo_html(query, max_results=5):
 def web_search(query, max_results=5):
     """Search the internet-try Bing, then Wikipedia, then DDG."""
 
-    # Bing first (most likely work on ID)
     results = _bing_search(query, max_results)
     if results:
         return f"🔍 Hasil pencarian '{query}' (via Bing):\n\n" + "\n\n".join(results)
     
-    # Wikipedia fallback (most stable, but article-based)
     results = _wiki_search(query, max_results)
     if results:
         return f"🔍 Hasil Wikipedia untuk '{query}':\n\n" + "\n\n".join(results)
     
-    # DDG last resort
     results = _duckduckgo_html(query, max_results)
     if results:
         return f"🔍 Hasil pencarian '{query}':\n\n" + "\n\n".join(results)

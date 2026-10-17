@@ -81,13 +81,11 @@ def append_message(sid, role, content, meta=None):
     data["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     (SESSIONS_DIR / f"{sid}.json").write_text(json.dumps(data, indent=2))
 
-    # Update index
     idx = _load_index()
     for s in idx["sessions"]:
         if s["id"] == sid:
             s["updated_at"] = data["updated_at"]
             s["count"] = len(data["messages"])
-            # Auto-title dari pesan user pertama
             if s["title"] == "Percakapan Baru" and role == "user":
                 s["title"] = content[:50]
             break

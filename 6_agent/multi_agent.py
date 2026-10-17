@@ -14,7 +14,6 @@ def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max
     
     from chat import chat_turn
     
-    # Base params — dipake buat semua call
     base_kwargs = {
         "custom_base_url": base_url,
         "custom_api_key": api_key,
@@ -26,7 +25,6 @@ def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max
     log(f"🧠 Model: {model or 'default'}")
     log("📋 Phase 1: Planning...")
     
-    # Phase 1: Planner
     planner_prompt = f"""Break down this goal into 2-{max_tasks} atomic tasks.
 
 GOAL: {goal}
@@ -49,17 +47,14 @@ No explanation. No markdown. Just JSON array."""
         log(f"❌ Planner error: {e}")
         return {"error": str(e)}
     
-    # Parse JSON array — multiple attempts
     tasks = []
     
-    # Attempt 1: direct JSON parse
     try:
         parsed = json.loads(plan_result.strip())
         if isinstance(parsed, list):
             tasks = [str(t) for t in parsed if str(t).strip()][:max_tasks]
     except: pass
     
-    # Attempt 2: extract JSON array via regex
     if not tasks:
         try:
             m = re.search(r'\[\s*"[\s\S]*?\]', plan_result)
@@ -69,7 +64,6 @@ No explanation. No markdown. Just JSON array."""
                     tasks = [str(t) for t in parsed if str(t).strip()][:max_tasks]
         except: pass
     
-    # Attempt 3: extract bullet points
     if not tasks:
         lines = plan_result.split('\n')
         for line in lines:
@@ -90,7 +84,6 @@ No explanation. No markdown. Just JSON array."""
     for i, t in enumerate(tasks, 1):
         log(f"  {i}. {t[:80]}")
     
-    # Phase 2: Execute (REAL TOOL CALLING)
     results = []
     history = []
     
@@ -125,9 +118,7 @@ Jika tidak butuh alat, jawab dengan teks biasa."""
                 **base_kwargs
             )
             
-            # Cek apakah AI membalas dengan JSON Tool Call
             result_clean = result.strip()
-            # Bersihkan markdown block jika AI bandel pakai ```json
             result_clean = re.sub(r'^```(?:json)?\n', '', result_clean)
             result_clean = re.sub(r'\n```$', '', result_clean)
             

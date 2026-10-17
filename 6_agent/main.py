@@ -33,7 +33,6 @@ BANNER = f"""
 
 
 
-# ============ TTS HELPER ============
 _tts_on = False
 
 
@@ -44,7 +43,6 @@ def _speak_response(text):
     try:
         import tts
         import re
-        # Bersihin markdown
         clean = re.sub(r'```[\s\S]*?```', ' kode ', text)
         clean = re.sub(r'`[^`]+`', '', clean)
         clean = re.sub(r'[#*_>\[\]|]', '', clean)
@@ -82,7 +80,6 @@ def main():
     global _tts_on
     print(BANNER)
 
-    # Tampilkan state aktif kalau ada
     state = load_state()
     if state:
         s = summarize(state)
@@ -102,7 +99,6 @@ def main():
         if not cmd:
             continue
 
-        # Commands
         if cmd in ("/exit", "/quit"):
             break
         if cmd == "/help":
@@ -131,7 +127,6 @@ def main():
                 block = long_memory.build_memory_block(max_items=30)
                 print(f"\n{block if block else '  (kosong)'}\n")
             elif parts[1] == "add" and len(parts) >= 3:
-                # Format: /memory add preferences "gw suka Python"
                 rest = parts[2].split(maxsplit=1)
                 if len(rest) >= 2:
                     cat, text = rest[0], rest[1]
@@ -179,7 +174,6 @@ def main():
                 text = voice.voice_cli()
                 if text:
                     print(f"  📝 \"{text}\"")
-                    # Auto kirim sebagai chat
                     resp, _ = _chat_turn([], text, focus="chat")
                     print(f"\n{resp}\n")
             except Exception as e:
@@ -198,7 +192,6 @@ def main():
             print("  • Full tool rounds (8)")
             print("  • Kualitas maksimal\n")
         elif cmd.startswith("/newfile "):
-            # Format: /newfile path/to/file.c <content atau kosong>
             parts = cmd[9:].strip().split(maxsplit=1)
             if not parts:
                 print("Usage: /newfile <path> [content]\n")
@@ -209,7 +202,6 @@ def main():
                 result = create_file(path, content)
                 print(f"\n  {result}\n")
         elif cmd.startswith("/append "):
-            # Format: /append path <content>
             parts = cmd[8:].strip().split(maxsplit=1)
             if len(parts) < 2:
                 print("Usage: /append <path> <content>\n")
@@ -218,7 +210,6 @@ def main():
                 result = append_to_file(parts[0], parts[1])
                 print(f"\n  {result}\n")
         elif cmd.startswith("/delete-lines "):
-            # Format: /delete-lines path start [end]
             parts = cmd[14:].strip().split()
             if len(parts) < 2:
                 print("Usage: /delete-lines <path> <start> [end]\n")
@@ -316,7 +307,6 @@ def main():
                 except KeyboardInterrupt:
                     print("\n  ⛔ Dibatalkan.\n")
         else:
-            # Default: chat mode (ngobrol)
             try:
                 response, chat_history = _chat_turn(chat_history, cmd)
                 print(f"\n{response}\n")

@@ -10,14 +10,12 @@ REFLECTION_PROMPT = """Kamu adalah **Reviewer** untuk task OS dev di workspace.
 
 Kamu baru saja menyelesaikan task. Tugasmu: REVIEW apakah hasilnya benar-benar sesuai task.
 
-## ATURAN PENTING
 - Task eksplorasi (baca/list) → OK kalau ada bukti file yang dibaca
 - JANGAN flag "no evidence" kalau task = eksplorasi dan agent udah baca file
 - JANGAN flag "kurang lengkap" kalau task = baca file dan file udah dibaca
 - Cuma flag kalau: (a) build gagal, (b) file nggak ada, (c) task eksekusi gagal total
 - Kalau ragu → pass aja (jangan bikin agent loop)
 
-## CARA REVIEW
 
 1. Cek apakah SEMUA yang diminta task sudah dikerjakan
 2. Cek apakah ada yang MISSING atau tidak lengkap
@@ -25,12 +23,10 @@ Kamu baru saja menyelesaikan task. Tugasmu: REVIEW apakah hasilnya benar-benar s
 4. Cek apakah build BERHASIL (kalau gagal, harus fix dulu)
 5. Cek apakah ada file terkait yang perlu di-update (Makefile, Kconfig, header)
 
-## TOOLS YANG BISA KAMU PAKAI (sama seperti executor)
 
 - list_dir(path), read_file(path), grep(pattern, path)
 - run_command(cmd), build_project(target, jobs)
 
-## OUTPUT FORMAT (JSON)
 
 Kalau task SUDAH benar selesai:
   {"review": "pass", "reason": "penjelasan singkat"}
@@ -42,7 +38,6 @@ Kalau perlu build ulang:
   {"review": "fix", "issues": ["belum di-build"], "next_action": {"tool": "build_project", "args": {"target": "build", "jobs": 4}}}
 
 
-## ATURAN MUTLAK (WAJIB DIBACA)
 
 1. Section "FILE YANG DISENTUH" di prompt = bukti agent UDAH KERJA. Kalau ada minimal 1 baris, artinya agent udah baca/list file → PASS.
 2. Kalau agent bilang `task_done` dan ada file disentuh → **PASTI PASS**. Jangan flag.
@@ -58,19 +53,15 @@ def reflect(task_desc, task_summary, files_touched, verbose=True):
     Return: (status, next_action_or_reason)
     status: "pass" | "fix" | "error"
     """
-    # === HARDCODED GATE: skip LLM reflection untuk task non-build ===
     task_lower = task_desc.lower()
     
-    # Build/verify task = wajib LLM review (buat mastiin build beneran sukses)
     is_build_task = any(k in task_lower for k in [
         "build", "compile", "test", "verify", "verifikasi",
         "fix error", "fix syntax", "check compile"
     ])
     
-    # Task lain (eksplorasi, bikin file, edit, dll) → auto-pass
     if not is_build_task:
         return "pass", f"auto-pass (task non-build, {len(files_touched)} files touched)"
-    # === END GATE ===
     
     files_str = "\n".join(f"  ✓ {f}" for f in files_touched) if files_touched else "  (nggak ada)"
 

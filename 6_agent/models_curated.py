@@ -1,6 +1,6 @@
-"""Model registry — NVIDIA + Agy (Antigravity) providers."""
+"""Registry model — NVIDIA + Agy (Antigravity) providers."""
 
-# Model yang pakai reasoning_content — butuh max_tokens tinggi
+
 REASONING_MODELS = {
     "nemotron-ultra", "nemotron-super", "nemotron-lightning", "nemotron-nano",
     "kimi-k3", "deepseek-pro", "gpt-oss-120b", "gpt-oss-120b-medium",
@@ -13,9 +13,7 @@ def is_reasoning(key):
     return key in REASONING_MODELS
 
 
-# ============ REGISTRY ============
 MODELS = {
-    # ===== NVIDIA (via OmniRoute) =====
     "nemotron-ultra": {
         "id": "nvidia/nvidia/nemotron-3-ultra-550b-a55b",
         "label": "Nemotron 3 Ultra 550B",
@@ -80,7 +78,6 @@ MODELS = {
         "recommended_mode": "minimum",
     },
 
-    # ===== AGY — Antigravity Provider =====
     "claude-opus-thinking": {
         "id": "agy/claude-opus-4-6-thinking",
         "label": "Claude Opus 4.6 (Thinking)",
@@ -217,7 +214,8 @@ def find_match(model_id):
 
 
 def by_provider():
-    """Group by provider untuk UI."""
+    """Group by provider for UI."""
+
     groups = {"nvidia": [], "agy": []}
     for k, v in MODELS.items():
         if v["id"].startswith("nvidia/"):

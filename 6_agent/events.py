@@ -13,7 +13,6 @@ def emit(event_type, data):
     _activity_log.append(data)
     if len(_activity_log) > 2000:
         del _activity_log[:-2000]
-    # Update totals if file changes
     if event_type == "file_change":
         _totals["added"] += data.get("added", 0)
         _totals["removed"] += data.get("removed", 0)

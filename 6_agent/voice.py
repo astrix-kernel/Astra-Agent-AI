@@ -7,12 +7,11 @@ from pathlib import Path
 from config import LOG_DIR
 
 
-# Config. 
 SAMPLE_RATE = 16000
 CHANNELS = 1
-MODEL_SIZE = "base"       # tiny, base, small, medium (base = balance)
-LANGUAGE = "id"           # Indonesian; change to None for auto-detect
-DEVICE = None             # None = default device; change to int to select device
+MODEL_SIZE = "base"      
+LANGUAGE = "id"          
+DEVICE = None            
 
 _whisper_model = None
 _recording = False
@@ -30,7 +29,7 @@ def _load_model():
         _whisper_model = WhisperModel(
             MODEL_SIZE,
             device="cpu",
-            compute_type="int8",  # save RAM, fast on CPU
+            compute_type="int8", 
         )
         print(f"  ✅ Whisper ready", flush=True)
     return _whisper_model
@@ -87,19 +86,15 @@ def stop_recording(save_to=None):
     if not _audio_buffer:
         return None
 
-    # Join buffer
     audio = np.concatenate(_audio_buffer, axis=0).flatten()
 
-    # Minimum check duration (0.3s)
     if len(audio) < SAMPLE_RATE * 0.3:
         return None
 
-    # Normalize
     peak = np.abs(audio).max()
     if peak > 0:
         audio = audio / peak * 0.95
 
-    # Save WAV
     if save_to is None:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         save_to = LOG_DIR / "voice_last.wav"
@@ -146,7 +141,6 @@ def is_recording():
     return _recording
 
 
-# = = = = = = = = = = = high-level: one-shot = = = = = = = = = = = =
 def record_and_transcribe(duration=None, silence_timeout=2.0):
     """
     Rekam sampai silence atau max duration, langsung transcribe.
@@ -167,7 +161,6 @@ def record_and_transcribe(duration=None, silence_timeout=2.0):
     return transcribe(wav)
 
 
-# = = = = = = = = = = = TERMINAL MODE (interactive) = = = = = = = = = = = = =
 def voice_cli():
     """Record via press Enter to start, Enter again to stop."""
 
@@ -180,7 +173,6 @@ def voice_cli():
     stop_thread.daemon = True
     stop_thread.start()
 
-    # Wait for user Enter
     while stop_thread.is_alive():
         stop_thread.join(timeout=0.1)
 
@@ -198,7 +190,6 @@ def voice_cli():
 
 
 
-# = = = = = = = = = = auto-stop on silence = = = = = = = = = = =
 def record_until_silence(silence_duration=1.5, max_duration=30.0,
                         silence_threshold=0.05):
     """
@@ -218,12 +209,10 @@ def record_until_silence(silence_duration=1.5, max_duration=30.0,
         _t.sleep(0.1)
         elapsed = _t.time() - t0
 
-        # Max duration
         if elapsed > max_duration:
             print("  ⏱️  Max duration reached")
             break
 
-        # Check last buffer volume
         if _audio_buffer:
             recent = _audio_buffer[-10:] if len(_audio_buffer) >= 10 else _audio_buffer
             import numpy as np
@@ -239,7 +228,7 @@ def record_until_silence(silence_duration=1.5, max_duration=30.0,
                     print("  🔇 Silence detected, stop")
                     break
             else:
-                silence_start = None  # reset if there is another sound
+                silence_start = None 
 
     wav = stop_recording()
     if not wav:

@@ -4,7 +4,6 @@ import json, time, requests
 from requests.adapters import HTTPAdapter
 from config import LLM_URL, LLM_API_KEY
 
-# Session with keep-alive + large pool
 _session = requests.Session()
 _adapter = HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=0)
 _session.mount("http://", _adapter)
@@ -20,15 +19,13 @@ def _build_payload(model_id, messages, max_tokens, temperature, stream=False):
         "temperature": temperature,
         "stream": stream,
     }
-    # Reasoning model needs effort control so as not to waste tokens
     if "ultra" in model_id.lower() or "opus" in model_id.lower() or "reasoning" in model_id.lower():
         payload["reasoning_effort"] = "medium"
         payload["chat_template_kwargs"] = {"enable_thinking": True, "reasoning_effort": "medium"}
     return payload
 
-# Timeout: (connect, read) — very long read, server can be slow
 CONNECT_TIMEOUT = 60
-READ_TIMEOUT = 7200  # 2 hours
+READ_TIMEOUT = 7200 
 
 
 def call_llm(messages, max_tokens=None, temperature=None):
@@ -93,20 +90,17 @@ def call_llm(messages, max_tokens=None, temperature=None):
                 print(f"  ✅ SUKSES setelah {consecutive_503} retry ({elapsed:.1f}s)", flush=True)
                 consecutive_503 = 0
 
-            # Reasoning model: content is null, there is reasoning, cut
             if not content and reasoning and finish == "length":
                 new_max = min(max_tokens * 4, 64000)
                 print(f"  ⚠️  Reasoning kepotong, max_tokens {max_tokens} → {new_max}", flush=True)
                 max_tokens = new_max
                 continue
 
-            # Total empty content
             if not content and not reasoning:
                 print(f"  ⚠️  Response kosong, retry...", flush=True)
                 time.sleep(2)
                 continue
 
-            # Return: prioritize content, fallback to reasoning
             return content if content else reasoning
 
         except requests.exceptions.ReadTimeout:
@@ -279,10 +273,8 @@ def call_llm_streaming(messages, max_tokens=None, temperature=None, on_chunk=Non
                 try:
                     chunk = _json.loads(data)
                     delta = chunk["choices"][0].get("delta", {})
-                    # Take content; if null but there is reasoning, use reasoning (Nemotron Ultra)
                     content = delta.get("content") or ""
                     reasoning = delta.get("reasoning_content") or ""
-                    # Only use reasoning if the content is empty
                     chunk_text = content if content else reasoning
                     if chunk_text:
                         full.append(chunk_text)

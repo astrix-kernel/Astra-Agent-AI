@@ -11,7 +11,6 @@ Bukan nebak-nebak. Kamu harus:
 5. Eliminasi yang salah
 6. Konklusi dari yang tersisa
 
-## working format
 
 **Fase 1 — INVESTIGASI**
 Baca dulu: log error, kode terkait, config. Kumpulkan evidence.
@@ -28,7 +27,6 @@ Test hipotesis #1 pakai tool. Hasil → eliminate atau confirm.
 **Fase 4 — KONKLUSI**
 Cuma hipotesis yang lulus test yang di-anggap benar.
 
-## strict rules
 - JANGAN langsung fix tanpa test hipotesis dulu
 - Kalau ada 2+ hipotesis yang mirip, test keduanya
 - Kalau semua hipotesis gagal, MUNDUR dan bikin hipotesis baru

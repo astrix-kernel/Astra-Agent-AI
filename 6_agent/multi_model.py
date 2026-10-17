@@ -29,7 +29,6 @@ def consult(question, models=None, max_workers=3):
     import runtime
 
     if models is None:
-        # Default: select 2-3 different models of characters
         models = ["nemotron-ultra", "kimi-k3"]
 
     old_model = runtime.get_model_key()
@@ -56,17 +55,14 @@ def consult(question, models=None, max_workers=3):
             except Exception:
                 pass
 
-    # Revert to the original model
     try:
         runtime.set_model(old_model)
     except Exception:
         pass
 
-    # If only 1 succeeds, just turn around
     if len(results) <= 1:
         return list(results.values())[0] if results else "(no response)"
 
-    # *synthesis
     try:
         combined = "\n\n".join(f"## Jawaban dari {k}:\n{v}" for k, v in results.items())
         syn_msgs = [
@@ -76,7 +72,6 @@ def consult(question, models=None, max_workers=3):
         final = call_llm(syn_msgs, max_tokens=3000, temperature=0.3)
         return final
     except Exception as e:
-        # If the synthesis fails, join the manual
         return "\n\n---\n\n".join(f"**{k}:**\n{v}" for k, v in results.items())
 
 

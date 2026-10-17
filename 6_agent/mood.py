@@ -20,7 +20,6 @@ def load():
     if MOOD_FILE.exists():
         try:
             d = json.loads(MOOD_FILE.read_text())
-            # Reset mood kalau udah >2 jam
             if time.time() - d.get("updated", 0) > 7200:
                 d["mood"] = "chill"
                 d["intensity"] = 3
@@ -55,7 +54,6 @@ def react_to_user(user_msg):
     d = load()
     msg = user_msg.lower()
 
-    # Deteksi nada
     if any(w in msg for w in ["makasih", "thanks", "keren", "bagus", "mantap", "nice"]):
         d["mood"] = "happy"
         d["intensity"] = min(5, d.get("intensity", 3) + 1)
@@ -63,13 +61,11 @@ def react_to_user(user_msg):
         d["mood"] = "sad"
         d["intensity"] = 4
     elif any(w in msg for w in ["kontol", "anjing", "goblok", "tolol", "bangsat", "tai"]):
-        # User ngomel → agent kesel, TAPI tetap bantu
         d["mood"] = "annoyed"
         d["intensity"] = min(5, d.get("intensity", 3) + 1)
     elif any(w in msg for w in ["halo", "hai", "pagi", "siang", "malam", "sore"]):
         d["mood"] = "chill"
     elif len(user_msg) > 500:
-        # Task berat → mode siap
         d["mood"] = "excited" if d.get("mood") == "happy" else "neutral"
 
     d["streak"] = d.get("streak", 0) + 1

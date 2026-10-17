@@ -1,4 +1,5 @@
-"""Git auto-checkpoint — jaring pengaman sebelum agent ngutak-ngatik."""
+"""Git auto-checkpoint - safety net before the agent frowns."""
+
 import subprocess, time, json
 from pathlib import Path
 from config import ASTRIX_ROOT, LOG_DIR
@@ -7,7 +8,8 @@ CKPT_LOG = LOG_DIR / "checkpoints.json"
 
 
 def _run(cmd, timeout=30):
-    """Run git command di ASTRIX_ROOT."""
+    """Run git command in ASTRIX_root."""
+
     try:
         r = subprocess.run(cmd, shell=True, cwd=ASTRIX_ROOT,
                            capture_output=True, text=True, timeout=timeout)
@@ -22,24 +24,24 @@ def is_git_repo():
 
 
 def ensure_branch():
-    """Pastikan ada branch khusus agent."""
+    """Make sure there is a special agent branch."""
+
     code, out, _ = _run("git rev-parse --abbrev-ref HEAD")
     if code != 0:
         return None
     current = out.strip()
     if current == "astrix-agent":
         return "astrix-agent"
-    # Bikin branch kalau belum ada
     code, _, _ = _run("git rev-parse --verify astrix-agent")
     if code != 0:
-        # Bikin branch baru dari current
         _run("git checkout -b astrix-agent")
         return "astrix-agent"
     return current
 
 
 def checkpoint(label="auto"):
-    """Commit semua perubahan dengan label."""
+    """Commit all changes with labels."""
+
     if not is_git_repo():
         return {"ok": False, "reason": "bukan git repo"}
 
@@ -50,7 +52,6 @@ def checkpoint(label="auto"):
     if not status.strip():
         return {"ok": True, "reason": "no changes", "hash": None}
 
-    # Stage + commit
     _run("git add -A")
     stamp = time.strftime("%Y%m%d-%H%M%S")
     msg = f"astrix-agent [{label}] {stamp}"
@@ -59,11 +60,9 @@ def checkpoint(label="auto"):
     if code != 0:
         return {"ok": False, "reason": err[:200]}
 
-    # Ambil hash
     _, hash_out, _ = _run("git rev-parse --short HEAD")
     hash_val = hash_out.strip()
 
-    # Catat ke log
     log = _load_log()
     log.append({"ts": time.time(), "label": label, "hash": hash_val, "msg": msg})
     log = log[-100:]
@@ -74,7 +73,8 @@ def checkpoint(label="auto"):
 
 
 def rollback(steps=1):
-    """Rollback ke checkpoint N-step sebelumnya."""
+    """Rollback to the previous N-step checkpoint."""
+
     if not is_git_repo():
         return {"ok": False, "reason": "bukan git repo"}
     log = _load_log()
@@ -103,7 +103,6 @@ def _load_log():
 
 
 
-# ============ AUTO COMMIT + PUSH ============
 def has_remote():
     code, out, _ = _run("git remote")
     return code == 0 and bool(out.strip())
@@ -115,7 +114,8 @@ def current_branch():
 
 
 def generate_commit_message():
-    """Pakai LLM buat bikin commit message deskriptif."""
+    """Use LLM to make a descriptive message commit."""
+
     try:
         _, diff, _ = _run("git diff --staged --stat")
         _, diff_detail, _ = _run("git diff --staged --no-color | head -100")
@@ -143,7 +143,6 @@ Balas HANYA commit message (1 baris). Nggak ada penjelasan."""
             temperature=0.2,
         )
         msg = msg.strip().strip('"').strip("'")
-        # Fallback kalau kosong/kepanjangan
         if not msg or len(msg) > 100:
             msg = "chore: astrix-agent checkpoint"
         return msg
@@ -165,7 +164,6 @@ def auto_commit_and_push(label="auto", push=True, auto_message=True):
 
     _run("git add -A")
 
-    # Generate message
     if auto_message:
         msg = generate_commit_message()
     else:
@@ -181,7 +179,6 @@ def auto_commit_and_push(label="auto", push=True, auto_message=True):
     _, hash_out, _ = _run("git rev-parse --short HEAD")
     hash_val = hash_out.strip()
 
-    # Push
     pushed = False
     push_error = None
     if push and has_remote():
@@ -192,7 +189,6 @@ def auto_commit_and_push(label="auto", push=True, auto_message=True):
         else:
             push_error = err[:200]
 
-    # Log
     log = _load_log()
     log.append({
         "ts": time.time(),

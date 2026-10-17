@@ -32,7 +32,6 @@ def add_fact(fact):
     if fact in d["facts"]:
         return
     d["facts"].append(fact)
-    # Keep max 50 facts
     d["facts"] = d["facts"][-50:]
     save(d)
 
@@ -42,7 +41,6 @@ def remember_facts(user_msg, agent_response):
 
     msg = user_msg.lower()
 
-    # Factual pattern
     patterns = [
         ("lagi ", lambda m: m.split("lagi", 1)[1].strip()[:100] if "lagi" in m else None),
         ("gw suka", lambda m: m.split("gw suka", 1)[1].strip()[:100] if "gw suka" in m else None),
@@ -59,7 +57,6 @@ def remember_facts(user_msg, agent_response):
         except Exception:
             pass
 
-    # Simpen streak daily
     d = load()
     last = d.get("last_seen", 0)
     now = time.time()
@@ -81,7 +78,7 @@ def memory_prompt():
     parts = ["## YANG LO INGET TENTANG USER"]
     if streak > 0:
         parts.append(f"- Kalian udah ngobrol {streak + 1} hari berturut-turut")
-    for f in facts[-5:]:  # Max last 5 facts
+    for f in facts[-5:]: 
         parts.append(f"- {f}")
     parts.append("Sebutin fakta ini sesekali biar kayak temen yang beneran inget.")
     return "\n".join(parts)

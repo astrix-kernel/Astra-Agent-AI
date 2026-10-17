@@ -19,7 +19,6 @@ def analyze_image(image_path, question="Jelaskan apa yang lu lihat di gambar ini
     ext = Path(image_path).suffix.lstrip(".") or "png"
     if ext == "jpg": ext = "jpeg"
 
-    # Pakai model Kimi K3 atau Nemotron (dukung vision)
     model = "nvidia/moonshotai/kimi-k3"
     try:
         model = runtime.get_model_id()

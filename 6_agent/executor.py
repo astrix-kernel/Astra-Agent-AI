@@ -1,4 +1,5 @@
-"""Executor — reasoning engine dengan self-check dan error recovery."""
+"""Executor-reasoning engine with self-check and error recovery."""
+
 import json, re, time
 from config import REQUEST_TIMEOUT, MAX_TOKENS_PER_RESPONSE
 from tools import TOOLS
@@ -18,7 +19,6 @@ EXECUTOR_PROMPT = """Kamu adalah **Executor** untuk Astrix Agent — project wor
 
 Kamu mengerjakan **SATU task** pada satu waktu. Setelah task selesai, output {"task_done": true}.
 
-## CARA BERPIKIR (WAJIB)
 
 Sebelum setiap aksi, MIKIR DULU:
 1. Apa yang task ini minta secara eksplisit?
@@ -26,7 +26,6 @@ Sebelum setiap aksi, MIKIR DULU:
 3. Apa langkah PALING KECIL yang bikin progress?
 4. Apa yang bisa gagal? Gimana cara cek?
 
-## TOOLS YANG TERSEDIA
 
 - list_dir(path) — lihat isi folder
 - read_file(path) — baca file (WAJIB sebelum edit file existing)
@@ -46,7 +45,6 @@ Sebelum setiap aksi, MIKIR DULU:
 - browse_url(url) — baca teks lengkap dari sebuah website
 - build_project(target, jobs) — **WAJIB** dipanggil setelah bikin/ubah .c atau .h. Return SUCCESS/FAILED + error list
 
-## 🪞 SELF-EDIT TOOLS (buat benerin diri sendiri)
 - self_read(path) — baca file astrix-ai (whitelist only)
 - self_replace(path, old_text, new_text) — replace dengan auto backup + syntax check
 - self_write(path, content) — tulis file baru dengan safety
@@ -62,7 +60,6 @@ Sebelum setiap aksi, MIKIR DULU:
 
 **Contoh task:** "bikin mood lo lebih sarkas" → self_read('6_agent/mood.py') → self_replace(...) → self_restart(30)
 
-## FORMAT OUTPUT (JSON SATU OBJEK)
 
 Untuk aksi:
   {"tool": "nama", "args": {...}}
@@ -79,7 +76,6 @@ Kalau blocked dan butuh keputusan user:
 Untuk menyimpan insight penting ke memory:
   {"remember": "catatan penting yang berguna untuk task selanjutnya"}
 
-## 🚨 ANTI EKSPLORASI ULANG
 
 **JANGAN baca file yang sama 2x.** Kalau udah baca `vtx_engine_core.c`, JANGAN baca lagi — udah tau isinya.
 
@@ -88,7 +84,6 @@ Kalau nemu diri lo baca file yang sama berulang, itu tanda lo STUCK. Aksi yang b
 - Kalau task butuh fix error → baca error, fix, `build_project`
 - Kalau task gak jelas → cari tahu dengan `grep` (pattern baru), bukan baca ulang
 
-## ⚡ ANTI NANYA-NANYA
 
 - **JANGAN PERNAH** nanya "mau mulai dari mana?", "gimana?", "setuju?", "oke?"
 - Kalau task ada blocker, LO BACA SENDIRI (read_file, grep, list_dir)
@@ -96,7 +91,6 @@ Kalau nemu diri lo baca file yang sama berulang, itu tanda lo STUCK. Aksi yang b
 - Kalau task ambigu, INTERPRETASI yang paling reasonable, JANGAN tanya balik
 - Satu-satunya alasan pakai {"ask": "..."} = butuh keputusan USER yang non-teknis (misal: mau pakai C atau C++?)
 
-## ATURAN KETAT
 
 0. **🚨 WAJIB PAKAI TOOL — JANGAN CUMAN NGOMONG 🚨**
    Kalau lo niatnya mau ngecek file, baca file, atau ngedit, **WAJIB** sertakan JSON di baris yang sama atau baris berikutnya.
@@ -116,7 +110,6 @@ Kalau nemu diri lo baca file yang sama berulang, itu tanda lo STUCK. Aksi yang b
 8. **JIKA SUDAH SELESAI:** output task_done TANPA aksi tambahan. Jangan over-engineer.
 9. **JANGAN REPEAT.** Kalau tool sama dipanggil dengan argumen sama >2x, itu bug.
 
-## CONTOH AKSI FILE MANIPULATION
 
 **Bikin file .c baru:**
 {"tool": "create_file", "args": {"path": "kernel/vtx_engine/vtx_memory.c", "content": "#include \"vtx_memory.h\"\n\nvoid* vtx_alloc(size_t size) {\n    return kmalloc(size);\n}\n"}}
@@ -134,7 +127,6 @@ Kalau nemu diri lo baca file yang sama berulang, itu tanda lo STUCK. Aksi yang b
 {"tool": "create_directory", "args": {"path": "kernel/vtx_engine/render"}}
 {"tool": "create_file", "args": {"path": "kernel/vtx_engine/render/vtx_render.h", "content": "..."}}
 
-## CONTOH SESI BAIK
 
 Task: "Bikin include/vtx/vtx.h dengan error codes"
 Langkah:
@@ -246,7 +238,8 @@ def execute_task(state, max_steps=None, verbose=True):
     cfg = runtime.cfg()
     if max_steps is None:
         max_steps = cfg.get("executor_max_steps", 40)
-    """Eksekusi task saat ini dengan reasoning + self-check."""
+    """Execute the current task with reasoning + self-check."""
+
     import runtime
     cfg = runtime.cfg()
 
@@ -262,7 +255,6 @@ def execute_task(state, max_steps=None, verbose=True):
         print(f"  🎯 TASK #{task['id']}/{len(state['tasks'])}: {task_desc[:80]}")
         print(f"{'═'*64}")
 
-    # Konteks: task apa yang sudah selesai + notes mereka
     done_tasks = [t for t in state["tasks"] if t["status"] == "done"]
     done_summary = "\n".join(
         f"  ✓ #{t['id']} {t['desc'][:70]}" +
@@ -278,14 +270,12 @@ def execute_task(state, max_steps=None, verbose=True):
         failed_summary = "\n\nTASK YANG GAGAL SEBELUMNYA (jangan ulangi kesalahan yang sama):\n" + \
             "\n".join(f"  ✗ #{t['id']} {t['desc'][:60]}: {t['result'][:100]}" for t in failed_tasks[-3:])
 
-    # Memory global (dari remember)
     memory = state.get("memory", [])
     memory_str = ""
     if memory:
         memory_str = "\n\nMEMORY (insight dari task sebelumnya):\n" + \
             "\n".join(f"  • {m}" for m in memory[-cfg.get('memory_window', 10):])
 
-    # SMART CONTEXT — auto-cari file relevan
     if verbose:
         print(f"  🔍 Cari file relevan...", flush=True)
     try:
@@ -298,14 +288,12 @@ def execute_task(state, max_steps=None, verbose=True):
         if verbose:
             print(f"     (gagal: {e})", flush=True)
 
-    # KNOWLEDGE BASE
     kb_ctx = ""
     try:
         kb_ctx = build_knowledge_block()
     except Exception:
         pass
 
-    # Kalau task #1-3, kasih project tree (biar agent orientasi)
     tree_ctx = ""
     if task["id"] <= 3:
         try:
@@ -313,21 +301,18 @@ def execute_task(state, max_steps=None, verbose=True):
         except Exception:
             pass
 
-    # Long-term memory
     mem_block = ""
     try:
         mem_block = build_memory_block()
     except Exception:
         pass
 
-    # Error hints
     err_hints = ""
     try:
         err_hints = build_hints_block()
     except Exception:
         pass
 
-    # Playbook + Hypothesis hint
     playbook_block = ""
     try:
         playbook_block = build_playbook_block(task_desc)
@@ -399,14 +384,12 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
                              "content": 'SALAH FORMAT. Balas JSON valid: {"tool":"...","args":{...}}'})
             continue
 
-        # === TASK DONE — handle berbagai format ===
         is_task_done = (
             action.get("task_done") is True or
             action.get("tool") == "task_done" or
             action.get("tool") == "done"
         )
         if is_task_done:
-            # Kalau dikirim sebagai tool, ambil summary dari args
             if action.get("tool") in ("task_done", "done"):
                 args = action.get("args", {}) or {}
                 action["task_done"] = True
@@ -415,7 +398,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
             summary = action.get("summary", "")
             notes = action.get("notes", "")
 
-            # Kumpulin files_touched dulu
             files_touched = []
             for call in last_calls[-20:]:
                 try:
@@ -434,7 +416,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
                 except Exception:
                     pass
 
-            # === VERIFIKASI FAKTA ===
             if verbose:
                 print(f"  🔍 Verifikasi fakta...", flush=True)
             try:
@@ -445,10 +426,9 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
                         print(f"     ❌ Verifikasi gagal: {len(issues)} issue")
                         for iss in issues[:3]:
                             print(f"        - {iss[:100]}")
-                    # Inject feedback ke conversation — biar agent fix
                     messages.append({"role": "assistant", "content": response})
                     messages.append({"role": "user", "content": build_fix_feedback(issues)})
-                    continue  # RETRY — jangan return done
+                    continue 
                 else:
                     if verbose:
                         print(f"     ✅ Fakta OK: {len(evidence['files_checked'])} file, build={evidence['build_status']}")
@@ -456,7 +436,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
                 if verbose:
                     print(f"     ⚠️  Verifier error: {e} (skip verifikasi fakta)")
 
-            # REFLECTION — review kerja sendiri
             if verbose:
                 print(f"  🪞 Self-review...", flush=True)
             try:
@@ -464,7 +443,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
                 for call in last_calls[-20:]:
                     try:
                         obj = json.loads(call)
-                        # Track SEMUA operasi file — read, list, write, edit
                         if obj.get("t") in (
                             "read_file", "read_lines", "list_dir",
                             "create_file", "write_file", "replace_text",
@@ -488,7 +466,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
                         print(f"     ⚠️  Ada {len(issues)} issue, agent fix dulu:")
                         for iss in issues[:3]:
                             print(f"        - {iss}")
-                    # Inject reflection back ke conversation
                     messages.append({"role": "assistant", "content": response})
                     fix_msg = "REVIEWER bilang task BELUM selesai. Issues:\n" + "\n".join(f"- {i}" for i in issues)
                     if next_action:
@@ -503,13 +480,11 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
                 if verbose:
                     print(f"     ⚠️  Reflection error: {e}, lanjut")
 
-            # Save notes ke memory
             if notes:
                 if "memory" not in state:
                     state["memory"] = []
                 state["memory"].append(f"[Task #{task['id']}] {notes}")
 
-            # Update knowledge base
             try:
                 if notes:
                     update_file_map(f"task#{task['id']}", notes[:200])
@@ -518,7 +493,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
 
             return "done", summary
 
-        # === REMEMBER ===
         if "remember" in action:
             if "memory" not in state:
                 state["memory"] = []
@@ -529,7 +503,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
             messages.append({"role": "user", "content": "Dicatat. Lanjut task."})
             continue
 
-        # === NEW TASK ===
         if "new_task" in action:
             new_t = add_task(state, action["new_task"], action.get("priority", "normal"))
             if verbose:
@@ -538,32 +511,26 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
             messages.append({"role": "user", "content": f"Task #{new_t['id']} ditambahkan. Lanjut task saat ini atau task_done."})
             continue
 
-        # === ASK ===
         if "ask" in action:
             return "ask", action["ask"]
 
-        # === TOOL CALL ===
         tool = action.get("tool")
         args = action.get("args", {})
 
-        # Loop detection — window lebih besar + threshold lebih ketat
         key = json.dumps({"t": tool, "a": args}, sort_keys=True, default=str)
         cnt = last_calls.count(key)
         if cnt >= 2:
-            # Cek apakah tool yang sama udah dipanggil 2x dengan hasil sama
             return "error", f"Loop detected: {tool}({str(args)[:80]}) dipanggil {cnt+1}x — stuck"
         last_calls.append(key)
         if len(last_calls) > 40:
             last_calls.pop(0)
 
-        # Deteksi "ronde ulang": kalau 10 call terakhir sama dengan 10 call sebelumnya
         if len(last_calls) >= 20:
             last10 = last_calls[-10:]
             prev10 = last_calls[-20:-10]
             if last10 == prev10:
                 return "error", "Detected repeating cycle: 2 ronde terakhir identik. Task stuck — perlu pendekatan beda."
 
-        # AUTO-DONE: kalau task eksplorasi udah baca >= 8 file unik, selesai
         task_lower = task_desc.lower()
         if any(k in task_lower for k in ["eksplorasi", "baca", "list", "cek"]) and \
            not any(k in task_lower for k in ["bikin", "buat", "edit", "hapus", "fix"]):
@@ -586,7 +553,6 @@ Kalau task selesai, output: {{"task_done": true, "summary": "...", "notes": "...
         result = execute_tool(tool, args)
         result_str = str(result)
 
-        # Deteksi error dari hasil + catat
         if result_str.startswith("ERROR"):
             consecutive_errors += 1
             last_error = result_str

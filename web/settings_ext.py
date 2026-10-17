@@ -49,7 +49,6 @@ def register_endpoints(app, DBG):
     @app.get("/api/usage")
     async def get_usage():
         data = _load(USAGE_FILE, {"days": {}, "totals": {}})
-        # 7 hari terakhir
         week = []
         for i in range(6, -1, -1):
             d = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
@@ -62,7 +61,6 @@ def register_endpoints(app, DBG):
         _save(USAGE_FILE, {"days": {}, "totals": {}})
         return {"ok": True}
     
-    # === PROFILES ===
     @app.get("/api/profiles")
     async def list_profiles():
         return _load(PROFILES_FILE, {})
@@ -85,13 +83,10 @@ def register_endpoints(app, DBG):
         _save(PROFILES_FILE, data)
         return {"ok": True}
     
-    # === EXPORT/IMPORT CONFIG ===
     @app.get("/api/config/export")
     async def export_config():
-        # Baca semua localStorage keys via client-side
         return {"ok": True, "note": "Use frontend to export localStorage"}
     
-    # === MEMORY (stub — buat nanti) ===
     @app.get("/api/memory")
     async def get_memory():
         return _load(MEMORY_FILE, {"facts": []})
