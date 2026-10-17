@@ -1,0 +1,163 @@
+"""Astrix Extension Marketplace — 127 extensions yang beneran ngecek tool asli di sistem."""
+
+# (id, name, icon, color, bg, category, desc, check_type, check_target, install_pkg, prompt)
+EXTENSIONS_RAW = [
+    # === LANGUAGES (20) ===
+    ("cpp", "C/C++ Compiler", "ph-file-c", "text-blue-400", "bg-blue-500/20", "language", "Kompilasi C/C++ via gcc/g++", "bin", "gcc", "gcc", "Compile C: `gcc file.c -o out && ./out`. C++: `g++ file.cpp -o out && ./out`. Read stderr on errors."),
+    ("rust", "Rust", "ph-gear", "text-orange-500", "bg-orange-500/20", "language", "Cargo & rustc", "bin", "cargo", "rust", "Use `cargo new proj && cd proj && cargo run`, or `rustc file.rs -o out && ./out`."),
+    ("go", "Go Engine", "ph-rocket", "text-sky-400", "bg-sky-500/20", "language", "Build & run Go", "bin", "go", "go", "Use `go run file.go` for scripts, or `go build file.go && ./file`."),
+    ("java", "Java JDK", "ph-coffee", "text-red-400", "bg-red-500/20", "language", "Kompilasi & jalankan Java", "bin", "java", "jdk-openjdk", "Use `javac Main.java && java Main`."),
+    ("kotlin", "Kotlin", "ph-code", "text-purple-400", "bg-purple-500/20", "language", "Kotlin compiler", "bin", "kotlinc", "kotlin", "Use `kotlinc f.kt -include-runtime -d o.jar && java -jar o.jar`."),
+    ("csharp", "C# / .NET", "ph-microsoft-teams-logo", "text-purple-500", "bg-purple-500/20", "language", ".NET SDK", "bin", "dotnet", "dotnet-sdk", "Use `dotnet new console -n app && cd app && dotnet run`."),
+    ("haskell", "Haskell", "ph-lambda", "text-purple-300", "bg-purple-500/20", "language", "GHC", "bin", "ghc", "ghc", "Use `ghc f.hs && ./f`, or `runghc f.hs`."),
+    ("ocaml", "OCaml", "ph-function", "text-orange-300", "bg-orange-500/20", "language", "OCaml compiler", "bin", "ocaml", "ocaml", "Use `ocaml f.ml`, or `ocamlc f.ml -o out && ./out`."),
+    ("erlang", "Erlang", "ph-atom", "text-red-500", "bg-red-500/20", "language", "Erlang runtime", "bin", "erl", "erlang", "Use `erl -noshell -eval 'io:format(\"~p~n\",[hello]), halt().'`."),
+    ("elixir", "Elixir", "ph-drop", "text-purple-600", "bg-purple-500/20", "language", "Elixir runner", "bin", "elixir", "elixir", "Use `elixir f.exs`, or `iex` for shell."),
+    ("clojure", "Clojure", "ph-code", "text-green-400", "bg-green-500/20", "language", "Clojure runner", "bin", "clojure", "clojure", "Use `clojure -M f.clj` or `clj` for REPL."),
+    ("scala", "Scala", "ph-code", "text-red-600", "bg-red-500/20", "language", "Scala compiler", "bin", "scala", "scala", "Use `scala f.scala`, or `scalac f.scala && scala Main`."),
+    ("zig", "Zig", "ph-lightning", "text-yellow-400", "bg-yellow-500/20", "language", "Zig compiler", "bin", "zig", "zig", "Use `zig run f.zig` or `zig build-exe f.zig`."),
+    ("nim", "Nim", "ph-crown", "text-yellow-300", "bg-yellow-500/20", "language", "Nim compiler", "bin", "nim", "nim", "Use `nim c -r f.nim` (compile & run)."),
+    ("crystal", "Crystal", "ph-diamond", "text-cyan-300", "bg-cyan-500/20", "language", "Crystal compiler", "bin", "crystal", "crystal", "Use `crystal run f.cr` or `crystal build f.cr`."),
+    ("lua", "Lua", "ph-moon", "text-blue-300", "bg-blue-500/20", "language", "Lua interpreter", "bin", "lua", "lua", "Use `lua f.lua`, or `lua -e 'print(\"hi\")'`."),
+    ("julia", "Julia", "ph-sigma", "text-purple-500", "bg-purple-500/20", "language", "Julia scientific", "bin", "julia", "julia", "Use `julia f.jl`, or `julia -e 'println(1+1)'`."),
+    ("r-lang", "R Language", "ph-chart-line", "text-blue-600", "bg-blue-500/20", "language", "R statistics", "bin", "Rscript", "r", "Use `Rscript f.R`. Load packages with `library(pkg)`."),
+    ("fortran", "Fortran", "ph-calculator", "text-blue-500", "bg-blue-500/20", "language", "gfortran", "bin", "gfortran", "gcc-fortran", "Use `gfortran f.f90 -o out && ./out`."),
+    ("cobol", "COBOL", "ph-floppy-disk", "text-gray-400", "bg-gray-500/20", "language", "GNU COBOL", "bin", "cobc", "gnucobol", "Use `cobc -x f.cob && ./f`."),
+
+    # === FRONTEND (12) ===
+    ("node", "Node.js", "ph-hexagon", "text-green-500", "bg-green-500/20", "frontend", "Node.js runtime", "bin", "node", "nodejs", "Run JS: `node file.js`. npm: `npm init && npm install pkg`."),
+    ("deno", "Deno", "ph-hexagon", "text-gray-200", "bg-gray-500/20", "frontend", "Deno runtime", "bin", "deno", "deno", "Run TypeScript: `deno run file.ts`."),
+    ("bun", "Bun", "ph-bread", "text-orange-300", "bg-orange-500/20", "frontend", "Bun ultra-fast runtime", "bin", "bun", "bun-bin", "Run: `bun run file.ts`. Install: `bun install`."),
+    ("typescript", "TypeScript", "ph-file-ts", "text-blue-500", "bg-blue-500/20", "frontend", "tsc & ts-node", "bin", "tsc", "typescript", "Compile: `tsc file.ts`. Run: `ts-node file.ts`."),
+    ("vite", "Vite", "ph-lightning", "text-purple-400", "bg-purple-500/20", "frontend", "Vite dev server", "bin", "vite", "vite", "New project: `npm create vite@latest`."),
+    ("webpack", "Webpack", "ph-package", "text-blue-400", "bg-blue-500/20", "frontend", "Webpack bundler", "bin", "webpack", "webpack", "Build: `webpack --config webpack.config.js`."),
+    ("tailwind", "Tailwind CSS", "ph-wind", "text-cyan-400", "bg-cyan-500/20", "frontend", "Utility-first CSS", "bin", "tailwindcss", "tailwindcss", "Init: `npx tailwindcss init -p`. Build: `npx tailwindcss -i in.css -o out.css`."),
+    ("sass", "Sass/SCSS", "ph-paint-brush", "text-pink-400", "bg-pink-500/20", "frontend", "CSS preprocessor", "bin", "sass", "sass", "Compile: `sass in.scss out.css`."),
+    ("nextjs", "Next.js", "ph-arrow-right", "text-white", "bg-white/10", "frontend", "Next.js framework", "bin", "next", "next", "New: `npx create-next-app@latest`. Dev: `next dev`."),
+    ("nuxt", "Nuxt", "ph-mountains", "text-green-500", "bg-green-500/20", "frontend", "Nuxt framework", "bin", "nuxt", "nuxt", "New: `npx nuxi init app`. Dev: `npx nuxi dev`."),
+    ("astro", "Astro", "ph-rocket-launch", "text-orange-500", "bg-orange-500/20", "frontend", "Astro framework", "bin", "astro", "astro", "New: `npm create astro@latest`."),
+    ("angular", "Angular", "ph-shield", "text-red-500", "bg-red-500/20", "frontend", "Angular framework", "bin", "ng", "@angular/cli", "New: `ng new app`. Serve: `ng serve`."),
+
+    # === BACKEND (10) ===
+    ("fastapi", "FastAPI", "ph-lightning", "text-teal-400", "bg-teal-500/20", "backend", "FastAPI web framework", "pyimport", "fastapi", "fastapi", "Create: `from fastapi import FastAPI`. Run: `uvicorn app:app --reload`."),
+    ("flask", "Flask", "ph-flask", "text-gray-300", "bg-gray-500/20", "backend", "Flask framework", "pyimport", "flask", "flask", "Create: `from flask import Flask`. Run: `flask run`."),
+    ("django", "Django", "ph-leaf", "text-green-700", "bg-green-500/20", "backend", "Django framework", "bin", "django-admin", "django", "Start: `django-admin startproject mysite`. Run: `python manage.py runserver`."),
+    ("express", "Express.js", "ph-train", "text-gray-200", "bg-gray-500/20", "backend", "Express web framework", "bin", "express", "express", "Create: `const express = require('express')`. Run: `node app.js`."),
+    ("nestjs", "NestJS", "ph-cat", "text-red-500", "bg-red-500/20", "backend", "NestJS framework", "bin", "nest", "@nestjs/cli", "New: `nest new project`."),
+    ("laravel", "Laravel", "ph-laravel-logo", "text-red-400", "bg-red-500/20", "backend", "Laravel PHP framework", "bin", "php", "php", "Install: `composer create-project laravel/laravel app`."),
+    ("rails", "Ruby on Rails", "ph-train", "text-red-600", "bg-red-500/20", "backend", "Rails framework", "bin", "rails", "ruby-rails", "New: `rails new app`. Run: `rails server`."),
+    ("phoenix", "Phoenix", "ph-fire", "text-orange-500", "bg-orange-500/20", "backend", "Phoenix Elixir framework", "bin", "mix", "elixir", "New: `mix phx.new app`. Run: `mix phx.server`."),
+    ("spring", "Spring Boot", "ph-leaf", "text-green-500", "bg-green-500/20", "backend", "Spring Boot Java", "bin", "mvn", "maven", "New: `curl https://start.spring.io/starter.zip -o app.zip`. Run: `./mvnw spring-boot:run`."),
+    ("gin", "Gin", "ph-martini", "text-cyan-400", "bg-cyan-500/20", "backend", "Gin Go framework", "bin", "go", "go", "Create: `import \"github.com/gin-gonic/gin\"`. Run: `go run main.go`."),
+
+    # === DATABASES (12) ===
+    ("sqlite", "SQLite", "ph-database", "text-blue-400", "bg-blue-500/20", "database", "SQLite embedded DB", "bin", "sqlite3", "sqlite", "Open: `sqlite3 db.sqlite`. Query: `.tables`, `SELECT * FROM users;`."),
+    ("postgresql", "PostgreSQL", "ph-elephant", "text-blue-500", "bg-blue-500/20", "database", "PostgreSQL server & client", "bin", "psql", "postgresql", "Connect: `psql -h localhost -U user -d db`."),
+    ("mysql", "MySQL", "ph-database", "text-orange-400", "bg-orange-500/20", "database", "MySQL server", "bin", "mysql", "mariadb", "Connect: `mysql -u user -p db`. Query: `SHOW TABLES;`."),
+    ("mariadb", "MariaDB", "ph-database", "text-brown-400", "bg-brown-500/20", "database", "MariaDB server", "bin", "mariadb", "mariadb", "Use `mariadb -u user -p` to connect."),
+    ("mongodb", "MongoDB", "ph-leaf", "text-green-500", "bg-green-500/20", "database", "MongoDB NoSQL", "bin", "mongosh", "mongodb-bin", "Connect: `mongosh mongodb://localhost:27017`."),
+    ("redis", "Redis", "ph-database", "text-red-500", "bg-red-500/20", "database", "Redis cache", "bin", "redis-cli", "redis", "Connect: `redis-cli`. `SET k v`, `GET k`."),
+    ("cassandra", "Cassandra", "ph-circle", "text-blue-600", "bg-blue-500/20", "database", "Apache Cassandra", "bin", "cqlsh", "cassandra", "Connect: `cqlsh`."),
+    ("neo4j", "Neo4j", "ph-graph", "text-green-600", "bg-green-500/20", "database", "Neo4j graph DB", "bin", "cypher-shell", "neo4j", "Connect: `cypher-shell -u neo4j -p pass`."),
+    ("influxdb", "InfluxDB", "ph-chart-line", "text-purple-500", "bg-purple-500/20", "database", "InfluxDB time-series", "bin", "influx", "influxdb", "Query: `influx query 'from(bucket:\"data\")...'`."),
+    ("clickhouse", "ClickHouse", "ph-house", "text-yellow-500", "bg-yellow-500/20", "database", "ClickHouse OLAP", "bin", "clickhouse-client", "clickhouse", "Connect: `clickhouse-client`."),
+    ("duckdb", "DuckDB", "ph-duck", "text-yellow-400", "bg-yellow-500/20", "database", "DuckDB analytics", "bin", "duckdb", "duckdb", "Open: `duckdb db.duckdb`. Query: `SELECT * FROM table;`."),
+    ("elasticsearch", "Elasticsearch", "ph-magnifying-glass", "text-yellow-500", "bg-yellow-500/20", "database", "Elasticsearch search", "bin", "curl", "curl", "Query: `curl -X GET 'localhost:9200/_cat/indices'`."),
+
+    # === DEVOPS (15) ===
+    ("docker", "Docker", "ph-cube", "text-blue-500", "bg-blue-500/20", "devops", "Container platform", "bin", "docker", "docker", "Build: `docker build -t name .`. Run: `docker run -it name`."),
+    ("podman", "Podman", "ph-seal", "text-purple-500", "bg-purple-500/20", "devops", "Rootless containers", "bin", "podman", "podman", "Use `podman build` / `podman run` (same as docker)."),
+    ("kubernetes", "Kubernetes", "ph-sailboat", "text-blue-600", "bg-blue-500/20", "devops", "K8s orchestration", "bin", "kubectl", "kubectl", "Use `kubectl get pods`, `kubectl apply -f manifest.yaml`."),
+    ("helm", "Helm", "ph-anchor", "text-blue-400", "bg-blue-500/20", "devops", "Helm charts", "bin", "helm", "helm", "Use `helm install name chart/`, `helm list`."),
+    ("terraform", "Terraform", "ph-cloud", "text-purple-600", "bg-purple-500/20", "devops", "IaC provisioning", "bin", "terraform", "terraform", "Use `terraform init`, `terraform plan`, `terraform apply`."),
+    ("ansible", "Ansible", "ph-gear-six", "text-red-500", "bg-red-500/20", "devops", "Configuration mgmt", "bin", "ansible", "ansible", "Run: `ansible-playbook playbook.yml -i hosts`."),
+    ("jenkins", "Jenkins CLI", "ph-butler", "text-red-600", "bg-red-500/20", "devops", "Jenkins CI", "bin", "jenkins-cli", "jenkins", "Use `jenkins-cli build job`."),
+    ("aws", "AWS CLI", "ph-amazon-logo", "text-orange-500", "bg-orange-500/20", "devops", "AWS command line", "bin", "aws", "aws-cli", "Configure: `aws configure`. Use `aws s3 ls`, `aws ec2 describe-instances`."),
+    ("gcloud", "Google Cloud CLI", "ph-google-logo", "text-blue-500", "bg-blue-500/20", "devops", "GCP CLI", "bin", "gcloud", "google-cloud-cli", "Auth: `gcloud auth login`. Use `gcloud compute instances list`."),
+    ("azure", "Azure CLI", "ph-microsoft-logo", "text-blue-600", "bg-blue-500/20", "devops", "Azure CLI", "bin", "az", "azure-cli", "Login: `az login`. Use `az vm list`."),
+    ("vercel", "Vercel CLI", "ph-triangle", "text-white", "bg-white/10", "devops", "Vercel deployment", "bin", "vercel", "vercel", "Deploy: `vercel --prod`."),
+    ("netlify", "Netlify CLI", "ph-diamond", "text-cyan-400", "bg-cyan-500/20", "devops", "Netlify deployment", "bin", "netlify", "netlify-cli", "Deploy: `netlify deploy --prod`."),
+    ("pulumi", "Pulumi", "ph-cloud", "text-purple-500", "bg-purple-500/20", "devops", "Modern IaC", "bin", "pulumi", "pulumi", "Use `pulumi up`, `pulumi preview`."),
+    ("argocd", "ArgoCD", "ph-git-branch", "text-orange-500", "bg-orange-500/20", "devops", "GitOps CD", "bin", "argocd", "argocd", "Login: `argocd login`. Sync: `argocd app sync myapp`."),
+    ("gh", "GitHub CLI", "ph-github-logo", "text-white", "bg-white/10", "devops", "GitHub command line", "bin", "gh", "github-cli", "Auth: `gh auth login`. Use `gh repo create`, `gh pr list`."),
+
+    # === AI/ML (12) ===
+    ("pytorch", "PyTorch", "ph-fire", "text-orange-500", "bg-orange-500/20", "ai", "PyTorch deep learning", "pyimport", "torch", "torch", "Import: `import torch`. Use `torch.tensor`, `torch.nn`, `torch.cuda.is_available()`."),
+    ("tensorflow", "TensorFlow", "ph-graph", "text-orange-600", "bg-orange-500/20", "ai", "TensorFlow", "pyimport", "tensorflow", "tensorflow", "Import: `import tensorflow as tf`. Use `tf.keras.Sequential([...])`."),
+    ("huggingface", "HuggingFace", "ph-smiley", "text-yellow-400", "bg-yellow-500/20", "ai", "Transformers library", "pyimport", "transformers", "transformers", "Use `from transformers import pipeline`. `pipeline('sentiment-analysis')('text')`."),
+    ("langchain", "LangChain", "ph-link", "text-green-500", "bg-green-500/20", "ai", "LLM framework", "pyimport", "langchain", "langchain", "Build chains: `from langchain.chains import LLMChain`."),
+    ("llamaindex", "LlamaIndex", "ph-owl", "text-purple-500", "bg-purple-500/20", "ai", "RAG framework", "pyimport", "llama_index", "llama-index", "Use `from llama_index.core import VectorStoreIndex`."),
+    ("scikit-learn", "Scikit-learn", "ph-chart-bar", "text-orange-500", "bg-orange-500/20", "ai", "ML library", "pyimport", "sklearn", "scikit-learn", "Use `from sklearn.ensemble import RandomForestClassifier`, `.fit(X, y)`, `.predict(X)`."),
+    ("xgboost", "XGBoost", "ph-trophy", "text-red-500", "bg-red-500/20", "ai", "Gradient boosting", "pyimport", "xgboost", "xgboost", "Use `import xgboost as xgb`. `xgb.XGBClassifier().fit(X, y)`."),
+    ("lightgbm", "LightGBM", "ph-lightning", "text-green-500", "bg-green-500/20", "ai", "LightGBM", "pyimport", "lightgbm", "lightgbm", "Use `import lightgbm as lgb`. `lgb.LGBMClassifier().fit(X, y)`."),
+    ("opencv", "OpenCV", "ph-eye", "text-green-600", "bg-green-500/20", "ai", "Computer vision", "pyimport", "cv2", "opencv-python", "Use `import cv2`. Read: `cv2.imread('img.jpg')`. Show: `cv2.imshow()`."),
+    ("spacy", "spaCy", "ph-text-t", "text-blue-500", "bg-blue-500/20", "ai", "NLP library", "pyimport", "spacy", "spacy", "Use `import spacy; nlp = spacy.load('en_core_web_sm')`."),
+    ("nltk", "NLTK", "ph-text-aa", "text-green-400", "bg-green-500/20", "ai", "NLP toolkit", "pyimport", "nltk", "nltk", "Use `import nltk`. `nltk.word_tokenize('text')`."),
+    ("transformers", "Transformers", "ph-brain", "text-yellow-400", "bg-yellow-500/20", "ai", "HuggingFace Transformers", "pyimport", "transformers", "transformers", "Use `from transformers import AutoModel, AutoTokenizer`."),
+
+    # === DATA (10) ===
+    ("pandas", "Pandas", "ph-table", "text-purple-500", "bg-purple-500/20", "data", "Data manipulation", "pyimport", "pandas", "pandas", "Use `import pandas as pd`. `df = pd.read_csv('file.csv')`, `df.head()`."),
+    ("numpy", "NumPy", "ph-function", "text-blue-500", "bg-blue-500/20", "data", "Numerical arrays", "pyimport", "numpy", "numpy", "Use `import numpy as np`. `arr = np.array([1,2,3])`."),
+    ("polars", "Polars", "ph-lightning", "text-cyan-500", "bg-cyan-500/20", "data", "Fast DataFrames", "pyimport", "polars", "polars", "Use `import polars as pl`. `df = pl.read_csv('file.csv')`."),
+    ("pyarrow", "PyArrow", "ph-arrow-right", "text-orange-500", "bg-orange-500/20", "data", "Apache Arrow", "pyimport", "pyarrow", "pyarrow", "Use `import pyarrow as pa`. `pa.array([1,2,3])`."),
+    ("spark", "Apache Spark", "ph-fire", "text-orange-600", "bg-orange-500/20", "data", "Big data Spark", "bin", "spark-shell", "spark", "Run: `spark-shell`, or `pyspark`."),
+    ("kafka", "Apache Kafka", "ph-queue", "text-gray-200", "bg-gray-500/20", "data", "Event streaming", "bin", "kafka-topics", "kafka", "Create topic: `kafka-topics --create --topic t --bootstrap-server localhost:9092`."),
+    ("airflow", "Apache Airflow", "ph-wind", "text-cyan-400", "bg-cyan-500/20", "data", "Workflow orchestration", "bin", "airflow", "apache-airflow", "Use `airflow standalone`, or `airflow dags list`."),
+    ("dbt", "dbt", "ph-database", "text-orange-500", "bg-orange-500/20", "data", "Data build tool", "bin", "dbt", "dbt-core", "Use `dbt init`, `dbt run`, `dbt test`."),
+    ("dask", "Dask", "ph-stack", "text-yellow-500", "bg-yellow-500/20", "data", "Parallel computing", "pyimport", "dask", "dask", "Use `import dask.dataframe as dd`. `df = dd.read_csv('*.csv')`."),
+    ("ray", "Ray", "ph-rays", "text-blue-500", "bg-blue-500/20", "data", "Distributed computing", "pyimport", "ray", "ray", "Use `import ray; ray.init()`. `@ray.remote def f(): ...`."),
+
+    # === SECURITY (10) ===
+    ("nmap", "Nmap", "ph-radar", "text-red-500", "bg-red-500/20", "security", "Port scanner", "bin", "nmap", "nmap", "Scan: `nmap -sV -O target.com`. Use only on authorized systems."),
+    ("wireshark", "Wireshark", "ph-wifi-high", "text-blue-500", "bg-blue-500/20", "security", "Packet analyzer", "bin", "tshark", "wireshark-cli", "CLI: `tshark -i eth0 -w capture.pcap`."),
+    ("tcpdump", "tcpdump", "ph-packet", "text-green-500", "bg-green-500/20", "security", "Packet capture", "bin", "tcpdump", "tcpdump", "Capture: `tcpdump -i any -w out.pcap`."),
+    ("metasploit", "Metasploit", "ph-skull", "text-red-600", "bg-red-500/20", "security", "Pentest framework", "bin", "msfconsole", "metasploit", "Use `msfconsole` interactive. Only on authorized targets."),
+    ("burpsuite", "Burp Suite", "ph-bug", "text-orange-500", "bg-orange-500/20", "security", "Web security testing", "bin", "burpsuite", "burpsuite", "Proxy tool for web app testing. GUI only."),
+    ("ghidra", "Ghidra", "ph-magnifying-glass-plus", "text-red-500", "bg-red-500/20", "security", "Reverse engineering", "bin", "ghidra", "ghidra", "Use `ghidraRun` for GUI decompiler."),
+    ("radare2", "radare2", "ph-terminal", "text-blue-500", "bg-blue-500/20", "security", "RE framework", "bin", "r2", "radare2", "Analyze: `r2 -A binary`, then `pdf @ main`."),
+    ("hashcat", "Hashcat", "ph-key", "text-yellow-500", "bg-yellow-500/20", "security", "Password recovery", "bin", "hashcat", "hashcat", "Crack: `hashcat -m 0 hash.txt wordlist.txt`."),
+    ("john", "John the Ripper", "ph-user", "text-red-500", "bg-red-500/20", "security", "Password cracker", "bin", "john", "john", "Crack: `john --wordlist=rockyou.txt hashes.txt`."),
+    ("aircrack", "Aircrack-ng", "ph-wifi-high", "text-green-500", "bg-green-500/20", "security", "WiFi security", "bin", "aircrack-ng", "aircrack-ng", "Use `aircrack-ng capture.cap -w wordlist.txt`. Only on authorized networks."),
+
+    # === TESTING (8) ===
+    ("pytest", "Pytest", "ph-flask", "text-green-500", "bg-green-500/20", "testing", "Python testing", "bin", "pytest", "python-pytest", "Run tests: `pytest`. Specific: `pytest tests/test_x.py::test_y`."),
+    ("jest", "Jest", "ph-joker", "text-red-500", "bg-red-500/20", "testing", "JS testing", "bin", "jest", "jest", "Run: `jest`, or `jest --watch`."),
+    ("vitest", "Vitest", "ph-lightning", "text-yellow-500", "bg-yellow-500/20", "testing", "Vite test runner", "bin", "vitest", "vitest", "Run: `vitest`, or `vitest run`."),
+    ("selenium", "Selenium", "ph-globe-hemisphere-west", "text-green-500", "bg-green-500/20", "testing", "Browser automation", "pyimport", "selenium", "selenium", "Use `from selenium import webdriver; driver = webdriver.Chrome()`."),
+    ("playwright", "Playwright", "ph-browser", "text-green-500", "bg-green-500/20", "testing", "Modern browser automation", "bin", "playwright", "playwright", "Use `playwright test`, or Python: `from playwright.sync_api import sync_playwright`."),
+    ("cypress", "Cypress", "ph-tree", "text-gray-200", "bg-gray-500/20", "testing", "E2E testing", "bin", "cypress", "cypress", "Run: `cypress open` or `cypress run`."),
+    ("k6", "k6 Load Test", "ph-gauge", "text-purple-500", "bg-purple-500/20", "testing", "Load testing", "bin", "k6", "k6", "Run: `k6 run script.js`."),
+    ("artillery", "Artillery", "ph-target", "text-orange-500", "bg-orange-500/20", "testing", "Load testing", "bin", "artillery", "artillery", "Run: `artillery run load-test.yml`."),
+
+    # === MEDIA (8) ===
+    ("ffmpeg", "FFmpeg", "ph-film-strip", "text-blue-500", "bg-blue-500/20", "media", "Video/audio toolkit", "bin", "ffmpeg", "ffmpeg", "Convert: `ffmpeg -i in.mp4 out.webm`. Extract audio: `ffmpeg -i in.mp4 -vn out.mp3`."),
+    ("imagemagick", "ImageMagick", "ph-image", "text-purple-500", "bg-purple-500/20", "media", "Image manipulation", "bin", "convert", "imagemagick", "Convert: `convert in.png -resize 800x600 out.jpg`."),
+    ("pandoc", "Pandoc", "ph-file-text", "text-blue-400", "bg-blue-500/20", "media", "Document converter", "bin", "pandoc", "pandoc", "Convert: `pandoc in.md -o out.pdf`. Many formats supported."),
+    ("tesseract", "Tesseract OCR", "ph-text-t", "text-yellow-500", "bg-yellow-500/20", "media", "OCR text extraction", "bin", "tesseract", "tesseract", "OCR: `tesseract image.png out -l eng`. Read `out.txt`."),
+    ("ghostscript", "Ghostscript", "ph-ghost", "text-gray-300", "bg-gray-500/20", "media", "PDF/PS toolkit", "bin", "gs", "ghostscript", "Convert PDF: `gs -sDEVICE=png16m -r300 -o page-%d.png in.pdf`."),
+    ("graphicsmagick", "GraphicsMagick", "ph-image", "text-purple-400", "bg-purple-500/20", "media", "Image processing", "bin", "gm", "graphicsmagick", "Use `gm convert in.jpg -resize 50% out.jpg`."),
+    ("optipng", "OptiPNG", "ph-image", "text-green-500", "bg-green-500/20", "media", "PNG optimizer", "bin", "optipng", "optipng", "Optimize: `optipng -o7 image.png`."),
+    ("handbrake", "HandBrake CLI", "ph-film-strip", "text-orange-500", "bg-orange-500/20", "media", "Video transcoder", "bin", "HandBrakeCLI", "handbrake-cli", "Transcode: `HandBrakeCLI -i in.mp4 -o out.mkv --preset Fast 1080p30`."),
+
+    # === SYSTEM (10) ===
+    ("htop", "htop", "ph-activity", "text-green-500", "bg-green-500/20", "system", "Process monitor", "bin", "htop", "htop", "Use `htop` for interactive process viewer."),
+    ("btop", "btop", "ph-activity", "text-blue-500", "bg-blue-500/20", "system", "Modern monitor", "bin", "btop", "btop", "Use `btop` for beautiful resource monitor."),
+    ("ripgrep", "ripgrep", "ph-magnifying-glass", "text-blue-500", "bg-blue-500/20", "system", "Fast grep", "bin", "rg", "ripgrep", "Search: `rg 'pattern' path/`. `rg -t py 'def '`."),
+    ("fd", "fd", "ph-magnifying-glass", "text-cyan-500", "bg-cyan-500/20", "system", "Fast find", "bin", "fd", "fd", "Find: `fd -e py` (all .py files), `fd pattern path/`."),
+    ("fzf", "fzf", "ph-funnel", "text-yellow-500", "bg-yellow-500/20", "system", "Fuzzy finder", "bin", "fzf", "fzf", "Pipe into fzf: `ls | fzf`, or `find . -type f | fzf`."),
+    ("bat", "bat", "ph-file-text", "text-gray-300", "bg-gray-500/20", "system", "cat with syntax highlight", "bin", "bat", "bat", "Show: `bat file.py`. Use `bat -r 10:20 file.py` for line range."),
+    ("jq", "jq", "ph-brackets-curly", "text-blue-500", "bg-blue-500/20", "system", "JSON processor", "bin", "jq", "jq", "Parse: `cat file.json | jq '.key'`. Pretty: `jq '.' file.json`."),
+    ("yq", "yq", "ph-brackets-curly", "text-purple-500", "bg-purple-500/20", "system", "YAML processor", "bin", "yq", "yq", "Parse YAML: `yq '.spec.replicas' deploy.yaml`."),
+    ("tmux", "tmux", "ph-terminal-window", "text-green-500", "bg-green-500/20", "system", "Terminal multiplexer", "bin", "tmux", "tmux", "Session: `tmux new -s work`. Detach: `Ctrl+B D`. Attach: `tmux attach -t work`."),
+    ("neovim", "Neovim", "ph-text-align-left", "text-green-500", "bg-green-500/20", "system", "Modern vim editor", "bin", "nvim", "neovim", "Open: `nvim file.py`. Save+quit: `:wq`. Edit inline: `nvim -c 'normal! G' file`."),
+]
+
+EXTENSIONS = []
+for row in EXTENSIONS_RAW:
+    EXTENSIONS.append({
+        "id": row[0], "name": row[1], "icon": row[2], "color": row[3], "bg": row[4],
+        "category": row[5], "desc": row[6], "check_type": row[7], "check_target": row[8],
+        "install_pkg": row[9], "prompt": row[10]
+    })
+
+print(f"✅ Catalog loaded: {len(EXTENSIONS)} extensions")

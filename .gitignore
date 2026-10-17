@@ -1,0 +1,84 @@
+# === Secrets (JANGAN PERNAH COMMIT) ===
+.env
+.env.local
+*.env.backup
+config.local.py
+
+# === Runtime data ===
+logs/
+*.log
+memory.db
+state.json
+progress.md
+usage.json
+profiles.json
+task_history.json
+__pycache__/
+*.pyc
+*.pyo
+
+# === Build artifacts ===
+build/
+*.EFI
+*.img
+*.bin
+*.iso
+*.o
+*.a
+
+# === Backup files (dari session debugging) ===
+*.bak
+*.bak*
+*.bak.*
+*.before_*
+*.pre-*
+*.corrupted*
+*.recovered*
+*.old
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+
+# === Test / temp ===
+test_*.txt
+tmp_*
+/tmp/
+
+# === Model files (besar) ===
+*.gguf
+*.bin
+*.safetensors
+
+# === Large data files ===
+2_dataset/raw/
+*.bin
+*.bin.old
+2_dataset/*.log
+
+# === Shell accident files ===
+6_agent/halo
+6_agent/halo,
+6_agent/hai
+6_agent/eh
+6_agent/jelasin
+
+# === Git backups ===
+.git.backup.*
+
+# === Training pipeline (moved to separate repo, not part of agent) ===
+1_tokenizer/
+2_dataset/
+3_model/
+4_train/
+5_server/
+
+# === Private notes / secrets ===
+6_agent/catatan/
+*.txt

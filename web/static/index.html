@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astrix AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0d1117; color: #c9d1d9; }
+        .glass-panel { background: rgba(22,27,34,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .glass-card { background: rgba(22,27,34,0.4); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.08); }
+        .glass-card:hover { background: rgba(22,27,34,0.6); border-color: rgba(255,255,255,0.15); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #30363d; border-radius: 4px; }
+        :root { --accent: #3b82f6; }
+        .bg-blue-600 { background: var(--accent) !important; }
+        .text-blue-400 { color: var(--accent) !important; }
+        .border-blue-500 { border-color: var(--accent) !important; }
+        .accent-blue-500 { accent-color: var(--accent) !important; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-sm">
+
+    <div class="fixed inset-0 z-0 bg-cover bg-center" style="background-image: url('/static/aemeath.jpg');"></div>
+    <div class="fixed inset-0 z-0 bg-gradient-to-r from-[#0d1117]/95 via-[#0d1117]/70 to-transparent"></div>
+
+    <!-- SIDEBAR KIRI -->
+    <div class="w-64 glass-panel flex flex-col hidden md:flex z-20 m-4 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+        <div class="p-5 flex items-center gap-3">
+            <i class="ph-fill ph-asterisk text-white text-3xl"></i>
+            <div><div class="font-bold text-white text-base">Astrix AI</div><div class="text-[10px] text-gray-400">Local · Private · Yours</div></div>
+        </div>
+        <div class="px-3 space-y-1 mt-2">
+            <button class="w-full flex items-center gap-3 px-3 py-2.5 bg-white/10 rounded-lg text-white font-medium"><i class="ph ph-chat-circle text-lg"></i> <span data-i18n="chat">Chat</span></button>
+            <button id="openExtensionsBtn" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-lg transition"><i class="ph ph-puzzle-piece text-lg"></i> <span>Extensions</span></button>
+            <button id="openSettingsBtn" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-lg transition"><i class="ph ph-gear text-lg"></i> <span data-i18n="settings">Settings</span></button>
+        </div>
+        <div class="px-5 mt-6 mb-2 flex items-center justify-between">
+            <span data-i18n="recent_chats" class="text-[10px] font-semibold text-gray-500 tracking-wider">RECENT CHATS</span>
+            <button id="newChatBtn" class="text-gray-400 hover:text-white"><i class="ph ph-plus"></i></button>
+        </div>
+        <div id="recentChats" class="flex-1 overflow-y-auto px-3 space-y-1 custom-scrollbar"></div>
+        <div class="p-4 m-3 bg-white/5 rounded-xl border border-white/5">
+            <div class="flex items-center gap-2 text-xs text-gray-300"><div class="w-2 h-2 bg-green-500 rounded-full"></div> Server Online</div>
+            <div class="text-[10px] text-gray-500 mt-1">localhost:8765</div>
+        </div>
+    </div>
+
+    <!-- MAIN CHAT -->
+    <div class="flex-1 flex flex-col relative z-10 h-full overflow-hidden">
+        <div class="flex-1 overflow-y-auto custom-scrollbar" id="chat-container">
+            <div class="max-w-4xl mx-auto p-8 pt-16 pb-48">
+                <div id="welcome-screen">
+                    <h1 data-i18n="greeting" class="text-5xl font-bold text-white mb-2 tracking-tight">Good morning, there</h1>
+                    <p data-i18n="subtitle" class="text-gray-400 mb-6 text-base">Your local AI assistant, running on your machine.</p>
+                    <div class="inline-flex items-center gap-2 glass-panel px-3 py-1.5 rounded-full mb-12">
+                        <i class="ph ph-cpu text-gray-300"></i>
+                        <span id="centerModelText" class="text-gray-200 font-medium text-xs">Loading...</span>
+                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full mx-1"></div>
+                        <span class="text-green-400 text-xs">Ready</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                        <div id="featureCode" class="glass-card p-5 rounded-xl cursor-pointer transition hover:scale-[1.02]">
+                            <i class="ph ph-code text-2xl text-white mb-3 block"></i>
+                            <h3 data-i18n="card_code_title" class="text-white font-semibold mb-1 text-sm">Code Assistant</h3>
+                            <p data-i18n="card_code_desc" class="text-xs text-gray-400">Help with coding, debugging, and system programming.</p>
+                        </div>
+                        <div id="featureAsk" class="glass-card p-5 rounded-xl cursor-pointer transition hover:scale-[1.02]">
+                            <i class="ph ph-lightbulb text-2xl text-white mb-3 block"></i>
+                            <h3 data-i18n="card_ask_title" class="text-white font-semibold mb-1 text-sm">Ask Anything</h3>
+                            <p data-i18n="card_ask_desc" class="text-xs text-gray-400">Get answers, explanations, and ideas.</p>
+                        </div>
+                        <div id="featurePrivate" class="glass-card p-5 rounded-xl cursor-pointer transition hover:scale-[1.02]">
+                            <i class="ph ph-shield-check text-2xl text-white mb-3 block"></i>
+                            <h3 data-i18n="card_private_title" class="text-white font-semibold mb-1 text-sm">Local & Private</h3>
+                            <p data-i18n="card_private_desc" class="text-xs text-gray-400">Your data stays on your device. No cloud, no tracking.</p>
+                        </div>
+                    </div>
+                    <div id="quick-prompts-container">
+                        <div class="flex items-center gap-2 text-xs font-semibold text-gray-300 mb-3"><i class="ph ph-lightning text-blue-400"></i> <span data-i18n="quick_prompts">Quick Prompts</span></div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            <button class="quick-prompt text-left glass-card px-4 py-2.5 rounded-lg text-xs text-gray-300 hover:text-white" data-i18n="qp_explain">Explain this code</button>
+                            <button class="quick-prompt text-left glass-card px-4 py-2.5 rounded-lg text-xs text-gray-300 hover:text-white" data-i18n="qp_debug">Help me debug this</button>
+                            <button class="quick-prompt text-left glass-card px-4 py-2.5 rounded-lg text-xs text-gray-300 hover:text-white" data-i18n="qp_shell">Write a shell script</button>
+                            <button class="quick-prompt text-left glass-card px-4 py-2.5 rounded-lg text-xs text-gray-300 hover:text-white" data-i18n="qp_summary">Summarize this document</button>
+                            <button class="quick-prompt text-left glass-card px-4 py-2.5 rounded-lg text-xs text-gray-300 hover:text-white" data-i18n="qp_plan">Plan a project</button>
+                            <button class="quick-prompt text-left glass-card px-4 py-2.5 rounded-lg text-xs text-gray-300 hover:text-white" data-i18n="qp_resources">Give me learning resources</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="chat-messages" class="space-y-6 mb-6 hidden"></div>
+            </div>
+        </div>
+
+        <!-- INPUT -->
+        <div class="w-full px-4 pb-6 pt-4 bg-transparent shrink-0 z-20 absolute bottom-0">
+            <div class="max-w-4xl mx-auto">
+                <div class="glass-panel rounded-xl p-3 mb-2 relative shadow-2xl">
+                    <div id="attachmentPreview" class="hidden px-3 pt-3 pb-1">
+                        <div class="relative inline-block">
+                            <img id="previewImg" class="hidden h-16 rounded-lg border border-white/20 object-cover" src="">
+                            <video id="previewVideo" class="hidden h-16 rounded-lg border border-white/20 object-cover" src="" muted></video>
+                            <button id="removeAttach" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-lg">&times;</button>
+                        </div>
+                    </div>
+                    <textarea id="input" rows="1" data-i18n="input_placeholder" class="w-full bg-transparent text-white px-2 py-2 outline-none resize-none placeholder-gray-500 text-sm" placeholder="Ketik pesan..." oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"></textarea>
+                    <div class="flex items-center justify-between mt-2 px-1">
+                        <div class="flex items-center gap-1">
+                            <button id="attachBtn" title="Lampirkan Foto/Video" class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg"><i class="ph ph-plus text-lg"></i></button>
+                            <input type="file" id="fileInput" class="hidden" accept="image/*,video/*">
+                            <button id="webBtn" title="Web Search" class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg"><i class="ph ph-globe text-lg"></i></button>
+                            <button id="codeBtn" title="Sisipkan Kode" class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg flex items-center gap-1 text-xs"><i class="ph ph-code text-lg"></i> Code</button>
+                            <button id="ttsBtn" title="Text-to-Speech" class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg"><i class="ph ph-speaker-high text-lg"></i></button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="relative" id="inputModelWrapper">
+                                <button id="inputModelBtn" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg text-xs text-gray-300 border border-white/5"><span id="inputModelText">Loading...</span> <i class="ph ph-caret-down text-xs"></i></button>
+                                <div id="inputModelMenu" class="hidden absolute bottom-full right-0 mb-2 w-72 max-h-80 overflow-y-auto glass-card rounded-xl p-2 z-50 shadow-2xl custom-scrollbar border border-white/10"></div>
+                            </div>
+                            <button id="send" type="button" class="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg"><i class="ph-bold ph-arrow-up text-base"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDEBAR KANAN -->
+    <div class="w-80 glass-panel flex flex-col hidden lg:flex z-20 m-4 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+        <div class="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-6">
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 data-i18n="context_usage" class="text-xs font-semibold text-white flex items-center gap-2"><i class="ph ph-brain text-green-400"></i> Context Usage</h3>
+                    <span id="contextPct" class="text-[10px] text-gray-400 font-mono">0%</span>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-2 mb-1.5 overflow-hidden"><div id="contextBar" class="h-2 rounded-full transition-all" style="width:0%; background: linear-gradient(90deg,#22c55e,#eab308,#ef4444)"></div></div>
+                <div class="text-[10px] text-gray-500 flex justify-between"><span id="contextTokens">0 tok</span><span>128K limit</span></div>
+            </div>
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 data-i18n="live_activity" class="text-xs font-semibold text-white flex items-center gap-2"><i class="ph ph-activity text-blue-400"></i> Live Activity</h3>
+                    <button id="clearActivityBtn" data-i18n="clear_btn" class="text-[10px] text-gray-500 hover:text-white">Clear</button>
+                </div>
+                <div id="liveActivityLog" class="space-y-1 max-h-32 overflow-y-auto custom-scrollbar text-[10px] font-mono">
+                    <div class="text-gray-600 italic text-center py-2" data-i18n="waiting_activity">Menunggu aktivitas agent...</div>
+                </div>
+            </div>
+            <div>
+                <h3 data-i18n="system_info" class="text-xs font-semibold text-white mb-3 flex items-center gap-2"><i class="ph ph-info"></i> System Info</h3>
+                <div class="space-y-2.5 text-[11px]">
+                    <div class="flex justify-between"><span data-i18n="os" class="text-gray-400">OS</span> <span id="sysOs" class="text-gray-200">Memuat...</span></div>
+                    <div class="flex justify-between"><span data-i18n="gpu" class="text-gray-400">GPU</span> <span id="sysGpu" class="text-gray-200 text-right truncate ml-2 max-w-[140px]">Memuat...</span></div>
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between"><span data-i18n="ram_usage" class="text-gray-400">RAM Usage</span> <span id="sysRam" class="text-gray-200">Memuat...</span></div>
+                        <div class="w-full bg-gray-700 rounded-full h-1.5 overflow-hidden"><div id="sysRamBar" class="h-1.5 rounded-full" style="width:0%; background:#3b82f6"></div></div>
+                    </div>
+                    <div class="flex justify-between"><span data-i18n="model" class="text-gray-400">Model</span> <span id="sysModelName" class="text-gray-200 text-right truncate ml-2 max-w-[140px]">Memuat...</span></div>
+                    <div class="flex justify-between"><span data-i18n="uptime" class="text-gray-400">Uptime</span> <span id="sysUptime" class="text-gray-200">Memuat...</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="p-5 border-t border-white/5">
+            <div class="flex items-center gap-2"><i class="ph-fill ph-asterisk text-gray-400 text-xl"></i><div><div class="text-[11px] text-gray-300">Astrix AI v0.1.0</div><div class="text-[10px] text-gray-500">Local AI</div></div></div>
+        </div>
+    </div>
+
+    <!-- SETTINGS PANEL (BASIC) -->
+    <div id="settingsPanel" class="fixed inset-0 z-[100] bg-[#0a0c10] hidden flex-col md:flex-row overflow-hidden">
+        <div class="w-full md:w-72 glass-panel border-r border-white/5 p-4 flex flex-col shrink-0 relative overflow-y-auto custom-scrollbar">
+            <div class="flex items-center gap-3 mb-6 px-2">
+                <i class="ph-fill ph-asterisk text-white text-3xl"></i>
+                <div><div class="font-bold text-white text-base">Settings</div><div class="text-[10px] text-gray-400">Enterprise Config</div></div>
+            </div>
+            <nav id="settingsNav" class="space-y-1 flex-1"></nav>
+            <button id="closeSettingsBtn" class="mt-4 w-full flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2.5 rounded-lg border border-red-500/20">
+                <i class="ph ph-arrow-left"></i> <span>Kembali</span>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-8 relative pb-24">
+            <div class="absolute inset-0 bg-[url('/static/aemeath.jpg')] bg-cover bg-center opacity-10"></div>
+            <div class="absolute inset-0 bg-gradient-to-b from-[#0a0c10]/80 to-[#0a0c10]"></div>
+            <div id="settingsContent" class="relative z-10 max-w-4xl mx-auto"></div>
+            <div class="absolute bottom-0 right-0 p-6 z-20">
+                <button id="saveSettingsBtn" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-2xl flex items-center gap-2">
+                    <i class="ph-bold ph-floppy-disk"></i> SIMPAN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const i18n = {
+        id: { greeting: "Selamat pagi, there", subtitle: "Asisten AI lokal Anda.", card_code_title: "Asisten Kode", card_code_desc: "Bantuan coding & debugging.", card_ask_title: "Tanya Apa Saja", card_ask_desc: "Jawaban & penjelasan.", card_private_title: "Lokal & Privat", card_private_desc: "Data tetap di perangkat Anda.", recent_chats: "RIWAYAT CHAT", chat: "Chat", settings: "Pengaturan", quick_prompts: "Perintah Cepat", qp_explain: "Jelaskan kode ini", qp_debug: "Bantu debug ini", qp_shell: "Tulis shell script", qp_summary: "Ringkas dokumen ini", qp_plan: "Rencanakan proyek", qp_resources: "Berikan sumber belajar", input_placeholder: "Ketik pesan...", system_info: "Info Sistem", os: "OS", gpu: "GPU", ram_usage: "Penggunaan RAM", model: "Model", uptime: "Waktu Nyala", context_usage: "Penggunaan Konteks", live_activity: "Aktivitas Langsung", clear_btn: "Hapus", waiting_activity: "Menunggu aktivitas agent...", tab_general: "Umum & UI", tab_provider: "LLM Provider", tab_model: "Parameter Model", tab_persona: "Persona & Prompt", back_to_chat: "Kembali", save_config: "SIMPAN", language_label: "Bahasa / Language", accent_color: "Warna Aksen" },
+        en: { greeting: "Good morning, there", subtitle: "Your local AI assistant.", card_code_title: "Code Assistant", card_code_desc: "Help with coding & debugging.", card_ask_title: "Ask Anything", card_ask_desc: "Get answers & ideas.", card_private_title: "Local & Private", card_private_desc: "Data stays on your device.", recent_chats: "RECENT CHATS", chat: "Chat", settings: "Settings", quick_prompts: "Quick Prompts", qp_explain: "Explain this code", qp_debug: "Help me debug this", qp_shell: "Write a shell script", qp_summary: "Summarize this document", qp_plan: "Plan a project", qp_resources: "Give me learning resources", input_placeholder: "Type a message...", system_info: "System Info", os: "OS", gpu: "GPU", ram_usage: "RAM Usage", model: "Model", uptime: "Uptime", context_usage: "Context Usage", live_activity: "Live Activity", clear_btn: "Clear", waiting_activity: "Waiting for agent activity...", tab_general: "General & UI", tab_provider: "LLM Provider", tab_model: "Model Params", tab_persona: "Persona & Prompt", back_to_chat: "Back", save_config: "SAVE", language_label: "Language", accent_color: "Accent Color" }
+    };
+
+    function applyLanguage(lang) {
+        const dict = i18n[lang] || i18n['id'];
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (dict[key]) {
+                if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = dict[key];
+                else el.textContent = dict[key];
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        let isGenerating = false, isWebSearch = false, currentChatId = null, currentChatMessages = [], selectedModel = null, allModels = [];
+
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('send');
+        const chatMessages = document.getElementById('chat-messages');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const quickPrompts = document.getElementById('quick-prompts-container');
+        const recentChatsContainer = document.getElementById('recentChats');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const openSettingsBtn = document.getElementById('openSettingsBtn');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        
+        // CHAT HISTORY
+        function getChats() { try { return JSON.parse(localStorage.getItem('astrix_chats') || '{}'); } catch(e) { return {}; } }
+        function saveChats(c) { localStorage.setItem('astrix_chats', JSON.stringify(c)); }
+
+        function renderRecentChats() {
+            const chats = getChats();
+            recentChatsContainer.innerHTML = '';
+            const ids = Object.keys(chats).sort((a,b) => (chats[b].timestamp||0) - (chats[a].timestamp||0));
+            if (ids.length === 0) { recentChatsContainer.innerHTML = '<div class="text-[10px] text-gray-500 px-3 italic">Belum ada riwayat</div>'; return; }
+            ids.forEach(id => {
+                const div = document.createElement('div');
+                div.className = `px-3 py-2 text-gray-300 hover:bg-white/5 rounded-md cursor-pointer flex items-center gap-2 ${id===currentChatId?'bg-white/10 text-white':''}`;
+                div.innerHTML = `<i class="ph ph-chat-text text-gray-400 shrink-0"></i> <span class="truncate">${chats[id].title}</span>`;
+                div.onclick = () => loadChat(id);
+                recentChatsContainer.appendChild(div);
+            });
+        }
+
+        function loadChat(id) {
+            const chats = getChats();
+            if (!chats[id]) return;
+            currentChatId = id;
+            currentChatMessages = chats[id].messages || [];
+            chatMessages.innerHTML = '';
+            chatMessages.classList.remove('hidden');
+            welcomeScreen.style.display = 'none';
+            quickPrompts.style.display = 'none';
+            currentChatMessages.forEach(m => renderMsg(m.content, m.role));
+            renderRecentChats();
+            updateContextUsage();
+        }
+
+        function renderMsg(text, role) {
+            const isUser = role === 'user';
+            const div = document.createElement('div');
+            div.className = `flex gap-4 ${isUser?'flex-row-reverse':''} mt-4`;
+            div.innerHTML = `<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isUser?'bg-gray-700':'bg-blue-600'} shadow-lg"><i class="ph ${isUser?'ph-user':'ph-sparkle'} text-white"></i></div><div class="max-w-[85%] text-sm text-gray-200 ${isUser?'bg-[#21262d] p-3 rounded-xl border border-white/5':'pt-1'}">${isUser?text:marked.parse(text)}</div>`;
+            chatMessages.appendChild(div);
+            document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+        }
+
+        function addMsg(text, role) {
+            renderMsg(text, role);
+            currentChatMessages.push({role, content: text});
+            const chats = getChats();
+            if (currentChatId && chats[currentChatId]) {
+                chats[currentChatId].messages = currentChatMessages;
+                chats[currentChatId].timestamp = Date.now();
+                saveChats(chats);
+            }
+            updateContextUsage();
+        }
+
+        function setLoading(state) {
+            isGenerating = state;
+            if (state) { sendBtn.innerHTML = '<i class="ph-fill ph-stop-circle text-lg"></i>'; sendBtn.className = 'w-8 h-8 flex items-center justify-center bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg'; }
+            else { sendBtn.innerHTML = '<i class="ph-bold ph-arrow-up text-base"></i>'; sendBtn.className = 'w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg'; }
+        }
+
+        let _currentAbortController = null;
+        async function handleSend() {
+            if (isGenerating) {
+                // STOP: call backend + abort local fetch
+                try {
+                    fetch('/api/chat/stop', { method: 'POST' });
+                } catch(e) { console.warn('Stop API err:', e); }
+                
+                if (_currentAbortController) {
+                    try { _currentAbortController.abort(); } catch(e) {}
+                    _currentAbortController = null;
+                }
+                
+                setLoading(false);
+                addMsg("🛑 *Dihentikan oleh user.*", 'agent');
+                return;
+            }
+            const text = input.value.trim();
+            if (!text) return;
+            
+            
+            const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+            input.value = ''; input.style.height = 'auto';
+            welcomeScreen.style.display = 'none'; quickPrompts.style.display = 'none'; chatMessages.classList.remove('hidden');
+            if (!currentChatId) {
+                currentChatId = 'chat_' + Date.now();
+                currentChatMessages = [];
+                const title = text.length > 25 ? text.substring(0,25)+'...' : text;
+                const chats = getChats();
+                chats[currentChatId] = {title, messages: [], timestamp: Date.now()};
+                saveChats(chats);
+            }
+            addMsg(text, 'user');
+            setLoading(true);
+            renderRecentChats();
+
+            let sysP = s.systemPrompt || 'You are a helpful AI assistant.';
+                
+                // MEMORY CONTEXT injection
+                try {
+                    const memRes = await fetch('/api/memory/list');
+                    const memData = await memRes.json();
+                    if (memData.memories && memData.memories.length > 0) {
+                        const relevant = memData.memories.slice(0, 10);
+                        sysP += '\n\n[MEMORY — known facts]\n' + relevant.map(m => `- [${m.category}] ${m.key}: ${m.value}`).join('\n');
+                    }
+                } catch(e) { console.warn('Memory load err:', e); }
+                if (s.workspace) {
+                    sysP += `\n\n[WORKSPACE CONTEXT]\nProject folder: ${s.workspace}\nThis is where you work. When reading/writing files, use paths inside this folder.`;
+                }
+            if (s.language === 'en') sysP += "\\n\\nCRITICAL: Reply in English.";
+            else sysP += "\\n\\nINSTRUKSI: Jawab dalam Bahasa Indonesia.";
+
+            const reqBody = {
+                message: text, focus: 'coding', keep_context: true,
+                web_search: isWebSearch, system_prompt: sysP, language: s.language || 'id',
+                temperature: s.temp ?? 0.7, max_tokens: s.maxTokens ?? 4096,
+                provider: (s.baseUrl ? 'custom' : (s.provider || 'omniroute')), base_url: s.baseUrl || '',
+                api_key: s.apiKey || '', model_override: s.modelOverride || (selectedModel?.key || '')
+            };
+
+            try {
+                const bId = 'stream-' + Date.now();
+                const div = document.createElement('div');
+                div.className = 'flex gap-4 mt-4';
+                div.id = bId;
+                div.innerHTML = `<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-blue-600 shadow-lg"><i class="ph ph-sparkle text-white"></i></div><div class="max-w-[85%] text-sm text-gray-200 pt-1" id="${bId}-text"></div>`;
+                chatMessages.appendChild(div);
+
+                const res = await fetch('/api/chat/stream', { 
+                    method: 'POST', signal: (_currentAbortController = new AbortController()).signal, 
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream',
+                        'Cache-Control': 'no-cache'
+                    }, 
+                    body: JSON.stringify(reqBody) 
+                });
+                console.log('[STREAM] Response status:', res.status, '| Headers:', [...res.headers.entries()]);
+                if (!res.ok) throw new Error('Server Error ' + res.status);
+
+                if (!res.body) throw new Error('Response body tidak streaming');
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                const textEl = document.getElementById(`${bId}-text`);
+                console.log('[STREAM] bId:', bId, '| textEl found:', !!textEl);
+                
+                if (!textEl) throw new Error('textEl tidak ditemukan: ' + bId + '-text');
+                
+                let full = '', buffer = '';
+                let chunkCount = 0;
+
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, {stream: true});
+                    const parts = buffer.split('\n\n');
+                    buffer = parts.pop();
+                    
+                    for (const part of parts) {
+                        if (part.startsWith('data: ')) {
+                            try {
+                                const d = JSON.parse(part.slice(6));
+                                if (d.type === 'chunk') {
+                                    chunkCount++;
+                                    full += d.text;
+                                    // Fallback: kalau marked error, pake textContent
+                                    try {
+                                        textEl.innerHTML = marked.parse(full);
+                                    } catch(markErr) {
+                                        console.warn('[STREAM] marked.parse error, fallback:', markErr);
+                                        textEl.textContent = full;
+                                    }
+                                }
+                                else if (d.type === 'tool') { addActivity(d.text, 'tool'); }
+                                else if (d.type === 'debug') { addActivity(d.text, 'debug'); }
+                            } catch(parseErr) {
+                                console.warn('[STREAM] Parse error:', parseErr, '| part:', part.slice(0, 100));
+                            }
+                        }
+                    }
+                    document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+                }
+                
+                console.log('[STREAM] DONE - total chunks:', chunkCount, '| full length:', full.length);
+                
+                if (full.length === 0) {
+                    textEl.innerHTML = '<span style="color:#f97316">⚠️ Stream selesai tapi 0 chunk diterima. Cek Console (F12) buat detail.</span>';
+                } else {
+                    try {
+                        textEl.innerHTML = marked.parse(full);
+                    } catch(e) {
+                        textEl.textContent = full;
+                    }
+                }
+                currentChatMessages.push({role: 'agent', content: full});
+                const chats = getChats();
+                if (currentChatId && chats[currentChatId]) { chats[currentChatId].messages = currentChatMessages; chats[currentChatId].timestamp = Date.now(); saveChats(chats); }
+                renderRecentChats();
+                updateContextUsage();
+            } catch(e) { 
+                    if (e.name === 'AbortError') {
+                        console.log('[STREAM] Aborted by user');
+                        // Don't add error message
+                    } else {
+                        addMsg("❌ Error: " + e.message, 'agent'); 
+                    }
+                }
+            finally { _currentAbortController = null; setLoading(false); }
+        }
+
+        // MODEL LOADER
+        async function loadModels() {
+            try {
+                const customRaw = localStorage.getItem('astrix_custom_models');
+                let isCustom = false;
+                if (customRaw) {
+                    const parsed = JSON.parse(customRaw);
+                    if (parsed && parsed.length > 0) { allModels = parsed.map(m => ({key: m, label: m, desc: 'Custom'})); isCustom = true; }
+                }
+                if (!isCustom) {
+                    const res = await fetch('/api/model');
+                    const data = await res.json();
+                    allModels = data.all || [];
+                }
+                const saved = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+                selectedModel = allModels.find(m => m.key === saved.modelOverride) || allModels[0];
+                if (!selectedModel) { document.getElementById('inputModelText').textContent = 'No model'; return; }
+
+                const iMenu = document.getElementById('inputModelMenu');
+                function renderMenu(menuEl, activeKey) {
+                    menuEl.innerHTML = `<div class="sticky top-0 bg-[#161b22] p-2 z-10 border-b border-white/10 mb-1 rounded-t-xl"><input type="text" placeholder="Cari model (${allModels.length})..." class="w-full bg-[#0d1117] text-xs px-3 py-2 rounded-lg border border-white/10 outline-none text-gray-200" oninput="window.filterModelList(this, '${menuEl.id}')"></div><div id="${menuEl.id}-list" class="space-y-0.5 pb-2"></div>`;
+                    const list = document.getElementById(`${menuEl.id}-list`);
+                    allModels.forEach(m => {
+                        const div = document.createElement('div');
+                        div.className = `px-3 py-2 text-xs rounded-lg cursor-pointer ${m.key === activeKey ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-white/10'}`;
+                        div.innerHTML = `<div class="font-medium truncate">${m.label}</div>`;
+                        div.dataset.modelName = m.label.toLowerCase();
+                        div.onclick = (e) => { e.stopPropagation(); selectedModel = m; window.updateModelUI(); iMenu.classList.add('hidden'); const st = JSON.parse(localStorage.getItem('astrix_settings')||'{}'); st.modelOverride = m.key; localStorage.setItem('astrix_settings', JSON.stringify(st)); };
+                        list.appendChild(div);
+                    });
+                }
+
+                window.filterModelList = function(inp, id) {
+                    const q = inp.value.toLowerCase();
+                    const list = document.getElementById(id + '-list');
+                    if (!list) return;
+                    Array.from(list.children).forEach(c => c.style.display = (c.dataset.modelName && c.dataset.modelName.includes(q)) ? 'block' : 'none');
+                };
+
+                window.updateModelUI = function() {
+                    document.getElementById('inputModelText').textContent = selectedModel.label;
+                    document.getElementById('sysModelName').textContent = selectedModel.label;
+                    document.getElementById('centerModelText').textContent = selectedModel.label;
+                    renderMenu(iMenu, selectedModel.key);
+                };
+                window.updateModelUI();
+
+                document.getElementById('inputModelBtn').onclick = (e) => { e.stopPropagation(); iMenu.classList.toggle('hidden'); };
+                document.addEventListener('click', (e) => {
+                    const w = document.getElementById('inputModelWrapper');
+                    if (w && !w.contains(e.target)) iMenu.classList.add('hidden');
+                });
+            } catch(e) { console.error('Load model error:', e); document.getElementById('inputModelText').textContent = 'Error'; }
+        }
+
+        // SYSTEM INFO
+        function updateSysInfo() {
+            fetch('/api/system?t=' + Date.now()).then(r => r.json()).then(d => {
+                document.getElementById('sysOs').textContent = d.os || 'N/A';
+                document.getElementById('sysGpu').textContent = d.gpu || 'N/A';
+                document.getElementById('sysRam').textContent = d.ram || 'N/A';
+                document.getElementById('sysUptime').textContent = d.uptime || 'N/A';
+                const bar = document.getElementById('sysRamBar');
+                if (bar && d.ram_pct) { bar.style.width = d.ram_pct + '%'; bar.style.background = d.ram_pct > 80 ? '#ef4444' : (d.ram_pct > 60 ? '#eab308' : '#3b82f6'); }
+            }).catch(e => console.log(e));
+        }
+
+        // CONTEXT USAGE
+        function updateContextUsage() {
+            const bar = document.getElementById('contextBar');
+            const pctEl = document.getElementById('contextPct');
+            const tokEl = document.getElementById('contextTokens');
+            if (!bar) return;
+            let chars = 0;
+            currentChatMessages.forEach(m => { chars += (m.content || '').length; });
+            const tokens = Math.ceil(chars / 4);
+            const pct = Math.min(100, (tokens / 128000) * 100);
+            bar.style.width = pct + '%';
+            pctEl.textContent = pct.toFixed(1) + '%';
+            pctEl.style.color = pct > 80 ? '#ef4444' : (pct > 60 ? '#eab308' : '#22c55e');
+            tokEl.textContent = tokens.toLocaleString() + ' tok';
+        }
+
+        // LIVE ACTIVITY
+        const activityLog = document.getElementById('liveActivityLog');
+        function addActivity(text, type = 'info') {
+            if (!activityLog) return;
+            const ph = activityLog.querySelector('.text-gray-600.italic');
+            if (ph) ph.remove();
+            const colors = { tool: 'text-blue-400 border-blue-500', debug: 'text-gray-500 border-gray-600', error: 'text-red-400 border-red-500' };
+            const div = document.createElement('div');
+            div.className = `px-2 py-1 rounded bg-white/5 border-l-2 ${colors[type] || 'border-gray-600 text-gray-400'} break-words`;
+            div.textContent = text;
+            activityLog.appendChild(div);
+            while (activityLog.children.length > 30) activityLog.removeChild(activityLog.firstChild);
+            activityLog.scrollTop = activityLog.scrollHeight;
+        }
+        // [clearActivity] handled by old code below
+
+        // EVENT LISTENERS
+        document.getElementById('send').onclick = (e) => { e.preventDefault(); handleSend(); };
+        input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
+        document.querySelectorAll('.quick-prompt').forEach(b => b.onclick = () => { input.value = b.textContent.trim(); handleSend(); });
+        document.getElementById('webBtn').onclick = function() { isWebSearch = !isWebSearch; this.classList.toggle('text-blue-400', isWebSearch); this.classList.toggle('bg-blue-500/20', isWebSearch); };
+        if (newChatBtn) newChatBtn.onclick = () => { currentChatId = null; currentChatMessages = []; chatMessages.innerHTML = ''; chatMessages.classList.add('hidden'); welcomeScreen.style.display = 'block'; quickPrompts.style.display = 'block'; input.value = ''; renderRecentChats(); updateContextUsage(); input.focus(); };
+
+        // 3 CARD FEATURES
+        document.body.addEventListener('click', (e) => {
+            const card = e.target.closest('.glass-card');
+            if (!card) return;
+            const titleEl = card.querySelector('h3[data-i18n]');
+            if (!titleEl) return;
+            const type = titleEl.getAttribute('data-i18n');
+            if (type === 'card_code_title') { input.value = "Tolong buatkan kode untuk: "; input.focus(); }
+            else if (type === 'card_ask_title') { input.value = "Jelaskan secara detail tentang: "; input.focus(); }
+            else if (type === 'card_private_title') { input.value = "Bagaimana sistem privasi dan keamanan lokal di Astrix AI ini bekerja?"; sendBtn.click(); }
+        });
+
+        // START
+        // [REMOVED] boot settings — handled by settings.js
+        // [REMOVED]
+
+        loadModels();
+        updateSysInfo();
+        setInterval(updateSysInfo, 1500);
+        renderRecentChats();
+        updateContextUsage();
+        console.log('✅ Astrix Core Loaded');
+    });
+    </script>
+
+    <!-- EXTENSIONS MODAL -->
+    <div id="extensionsModal" class="fixed inset-0 z-[150] hidden items-center justify-center bg-black/70 backdrop-blur-md">
+        <div class="w-full max-w-5xl bg-[#0d1117] rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col" style="max-height: 90vh;">
+            <div class="p-5 border-b border-white/10 bg-[#161b22] flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <i class="ph-fill ph-puzzle-piece text-orange-400 text-2xl"></i>
+                    <div>
+                        <div class="text-white font-bold">Extension Marketplace</div>
+                        <div class="text-xs text-gray-400"><span id="extCount">0</span> extensions tersedia</div>
+                    </div>
+                </div>
+                <button id="closeExtensionsBtn" class="text-gray-400 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <div class="p-4 bg-[#0d1117] border-b border-white/10">
+                <input type="text" id="extSearchInput" placeholder="Cari ekstensi (cpp, python, docker, dll)..." class="w-full bg-[#050608] border border-white/10 text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-orange-500">
+            </div>
+            <div id="extensionsGrid" class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div class="col-span-full text-center py-10 text-gray-500"><i class="ph ph-spinner animate-spin text-3xl mb-2 inline-block"></i><br>Memuat 1000+ ekstensi...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPIDERMAN SCENE -->
+    <div id="spiderScene" class="fixed inset-0 z-[99999] hidden items-center justify-center" style="background: radial-gradient(circle at center, #1a0a10 0%, #000 100%);">
+        <div class="absolute top-8 text-gray-400 text-xs tracking-[0.3em] uppercase animate-pulse">Arahkan kursor ke Spiderman</div>
+        <img id="spiderImage" src="/static/spiderman-red.jpg" style="width: 80vw; max-width: 600px; max-height: 80vh; object-fit: contain; filter: drop-shadow(0 0 60px rgba(220,38,38,0.8)); transition: all 0.4s; cursor: crosshair;" onerror="this.style.display='none'; document.getElementById('spiderFallback').style.display='block';">
+        <div id="spiderFallback" style="display: none; font-size: 15rem; filter: drop-shadow(0 0 60px rgba(220,38,38,0.8));">🕷️</div>
+        <div class="absolute bottom-8 text-gray-500 text-xs tracking-[0.2em] animate-pulse">⬆ SCROLL KE ATAS UNTUK KEMBALI ⬆</div>
+    </div>
+    <style>
+        #spiderImage:hover { filter: drop-shadow(0 0 80px rgba(80,80,120,0.9)) brightness(0.3) grayscale(100%) contrast(1.5) !important; transform: scale(1.05); }
+    </style>
+
+    <!-- JAVASCRIPT UNTUK 4 FITUR -->
+    <script>
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            console.log('🎯 Loading feature pack...');
+            
+            // ==========================================
+            // 1. TTS LOGIC
+            // ==========================================
+            let ttsEnabled = JSON.parse(localStorage.getItem('astrix_settings') || '{}').tts || false;
+            
+            const ttsBtn = document.getElementById('ttsBtn');
+            if (ttsBtn) {
+                ttsBtn.onclick = () => {
+                    ttsEnabled = !ttsEnabled;
+                    ttsBtn.classList.toggle('text-green-400', ttsEnabled);
+                    ttsBtn.classList.toggle('bg-green-500/20', ttsEnabled);
+                    const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+                    s.tts = ttsEnabled;
+                    localStorage.setItem('astrix_settings', JSON.stringify(s));
+                    if (ttsEnabled && 'speechSynthesis' in window) {
+                        const u = new SpeechSynthesisUtterance('TTS aktif');
+                        u.lang = 'id-ID';
+                        window.speechSynthesis.speak(u);
+                    }
+                };
+                if (ttsEnabled) ttsBtn.classList.add('text-green-400', 'bg-green-500/20');
+            }
+            
+            // Override addMsg buat TTS otomatis
+            if (typeof addMsg === 'function') {
+                const _origAddMsg = addMsg;
+                window.addMsg = function(text, role) {
+                    _origAddMsg(text, role);
+                    if (role === 'agent' && ttsEnabled && 'speechSynthesis' in window) {
+                        const lang = JSON.parse(localStorage.getItem('astrix_settings') || '{}').language || 'id';
+                        const u = new SpeechSynthesisUtterance(text.replace(/[`*#_]/g, '').substring(0, 500));
+                        u.lang = lang === 'en' ? 'en-US' : 'id-ID';
+                        window.speechSynthesis.speak(u);
+                    }
+                };
+            }
+            
+            // ==========================================
+            // 2. ATTACHMENT LOGIC
+            // ==========================================
+            const attachBtn = document.getElementById('attachBtn');
+            const fileInput = document.getElementById('fileInput');
+            const previewContainer = document.getElementById('attachmentPreview');
+            const previewImg = document.getElementById('previewImg');
+            const previewVideo = document.getElementById('previewVideo');
+            const removeAttach = document.getElementById('removeAttach');
+            
+            let attachedFileName = null;
+            let attachedFileBase64 = null;
+            
+            if (attachBtn && fileInput) {
+                attachBtn.onclick = () => fileInput.click();
+                fileInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    attachedFileName = file.name;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        attachedFileBase64 = ev.target.result;
+                        if (previewContainer) previewContainer.classList.remove('hidden');
+                        if (file.type.startsWith('video/')) {
+                            previewImg.classList.add('hidden');
+                            previewVideo.classList.remove('hidden');
+                            previewVideo.src = attachedFileBase64;
+                        } else {
+                            previewVideo.classList.add('hidden');
+                            previewImg.classList.remove('hidden');
+                            previewImg.src = attachedFileBase64;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                };
+            }
+            
+            if (removeAttach) {
+                removeAttach.onclick = () => {
+                    fileInput.value = '';
+                    attachedFileName = null;
+                    attachedFileBase64 = null;
+                    if (previewContainer) previewContainer.classList.add('hidden');
+                };
+            }
+            
+            // Patch handleSend biar include attachment info
+            const _origSend = window.handleSend;
+            if (_origSend) {
+                window.handleSend = async function() {
+                    if (attachedFileName) {
+                        const inputEl = document.getElementById('input');
+                        if (inputEl && !inputEl.value.trim()) {
+                            inputEl.value = `[Lampiran: ${attachedFileName}]`;
+                        } else if (inputEl) {
+                            inputEl.value = `[Lampiran: ${attachedFileName}]
+${inputEl.value}`;
+                        }
+                    }
+                    await _origSend.call(this);
+                    fileInput.value = '';
+                    attachedFileName = null;
+                    attachedFileBase64 = null;
+                    if (previewContainer) previewContainer.classList.add('hidden');
+                };
+            }
+            
+            // ==========================================
+            // 3. EXTENSIONS MARKETPLACE
+            // ==========================================
+            const extModal = document.getElementById('extensionsModal');
+            const openExtBtn = document.getElementById('openExtensionsBtn');
+            const closeExtBtn = document.getElementById('closeExtensionsBtn');
+            const extGrid = document.getElementById('extensionsGrid');
+            const extSearch = document.getElementById('extSearchInput');
+            const extCount = document.getElementById('extCount');
+            
+            let extCatalog = [];
+            let extLoaded = false;
+            let installedExts = JSON.parse(localStorage.getItem('astrix_extensions') || '[]');
+            
+            async function loadExtCatalog() {
+                if (extLoaded) return;
+                try {
+                    const res = await fetch('/api/extensions/list');
+                    const data = await res.json();
+                    extCatalog = data.extensions || [];
+                    extLoaded = true;
+                    if (extCount) extCount.textContent = extCatalog.length;
+                    renderExtGrid();
+                } catch(e) { console.error('Load ext error:', e); }
+            }
+            
+            function renderExtGrid(filter = '') {
+                if (!extGrid) return;
+                const q = filter.toLowerCase();
+                const filtered = extCatalog.filter(e => 
+                    !q || e.name.toLowerCase().includes(q) || e.desc.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)
+                );
+                
+                extGrid.innerHTML = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="extGridInner"></div>';
+                const inner = document.getElementById('extGridInner');
+                
+                if (filtered.length === 0) {
+                    inner.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500">Nggak ada ekstensi yang cocok</div>';
+                    return;
+                }
+                
+                filtered.slice(0, 300).forEach(ext => {
+                    const isInstalled = installedExts.includes(ext.id);
+                    const card = document.createElement('div');
+                    card.className = 'glass-card p-3 rounded-xl flex items-start gap-3';
+                    card.innerHTML = `
+                        <div class="w-9 h-9 rounded-lg ${ext.bg || 'bg-blue-500/20'} flex items-center justify-center shrink-0">
+                            <i class="ph-fill ${ext.icon || 'ph-puzzle-piece'} ${ext.color || 'text-blue-400'} text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs text-white font-semibold truncate">${ext.name}</div>
+                            <div class="text-[10px] text-gray-400 truncate">${ext.category}</div>
+                            <button class="ext-install-btn mt-2 w-full py-1 rounded-md text-[10px] font-bold ${isInstalled ? 'bg-green-500/20 text-green-400' : 'bg-blue-600 text-white hover:bg-blue-500'}" data-id="${ext.id}">
+                                ${isInstalled ? '✓ Active' : 'Install'}
+                            </button>
+                        </div>
+                    `;
+                    inner.appendChild(card);
+                });
+                
+                if (filtered.length > 300) {
+                    inner.innerHTML += `<div class="col-span-full text-center text-xs text-gray-500 py-2">+${filtered.length - 300} lainnya — refine search</div>`;
+                }
+                
+                inner.querySelectorAll('.ext-install-btn').forEach(btn => {
+                    btn.onclick = () => {
+                        const id = btn.dataset.id;
+                        if (installedExts.includes(id)) {
+                            installedExts = installedExts.filter(x => x !== id);
+                            btn.textContent = 'Install';
+                            btn.className = 'ext-install-btn mt-2 w-full py-1 rounded-md text-[10px] font-bold bg-blue-600 text-white hover:bg-blue-500';
+                        } else {
+                            installedExts.push(id);
+                            btn.textContent = '✓ Active';
+                            btn.className = 'ext-install-btn mt-2 w-full py-1 rounded-md text-[10px] font-bold bg-green-500/20 text-green-400';
+                        }
+                        localStorage.setItem('astrix_extensions', JSON.stringify(installedExts));
+                    };
+                });
+            }
+            
+            if (openExtBtn) openExtBtn.onclick = () => {
+                extModal.classList.remove('hidden');
+                extModal.classList.add('flex');
+                loadExtCatalog();
+            };
+            if (closeExtBtn) closeExtBtn.onclick = () => {
+                extModal.classList.add('hidden');
+                extModal.classList.remove('flex');
+            };
+            if (extSearch) extSearch.oninput = (e) => renderExtGrid(e.target.value);
+            
+            // ==========================================
+            // 4. SPIDERMAN SCENE
+            // ==========================================
+            const spiderScene = document.getElementById('spiderScene');
+            const chatContainer = document.getElementById('chat-container');
+            
+            let spiderOpen = false;
+            let ignoreScroll = false;
+            
+            function openSpider() {
+                if (spiderOpen) return;
+                spiderOpen = true;
+                spiderScene.classList.remove('hidden');
+                spiderScene.classList.add('flex');
+            }
+            
+            function closeSpider() {
+                if (!spiderOpen) return;
+                spiderOpen = false;
+                spiderScene.classList.add('hidden');
+                spiderScene.classList.remove('flex');
+                ignoreScroll = true;
+                chatContainer.scrollTo({ top: 0, behavior: 'smooth' });
+                setTimeout(() => { ignoreScroll = false; }, 1000);
+            }
+            
+            if (chatContainer) {
+                chatContainer.addEventListener('scroll', () => {
+                    if (spiderOpen || ignoreScroll) return;
+                    const welcome = document.getElementById('welcome-screen');
+                    if (!welcome || welcome.style.display === 'none') return;
+                    const st = chatContainer.scrollTop;
+                    const max = chatContainer.scrollHeight - chatContainer.clientHeight;
+                    if (max > 80 && st >= max - 40) openSpider();
+                }, { passive: true });
+            }
+            
+            if (spiderScene) {
+                spiderScene.addEventListener('wheel', (e) => {
+                    if (spiderOpen && e.deltaY < 0) closeSpider();
+                }, { passive: true });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && spiderOpen) closeSpider();
+                });
+            }
+            
+            console.log('✅ All features loaded: TTS, Attach, Extensions, Spiderman');
+        }, 1500);
+    });
+    </script>
+
+    <script src="/static/settings.js"></script>
+
+    <script>
+    // SAVE HANDLER — call settings.js collectSettings
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const sb = document.getElementById('saveSettingsBtn');
+            if (sb && !sb._bound) {
+                sb._bound = true;
+                sb.onclick = () => {
+                    // Fallback collect
+                    const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+                    const q = (id) => document.getElementById(id);
+                    if (q('setProvider')) s.provider = q('setProvider').value;
+                    if (q('setBaseUrl')) s.baseUrl = q('setBaseUrl').value.trim();
+                    if (q('setApiKey')) s.apiKey = q('setApiKey').value.trim();
+                    if (q('setModelOverride')) s.modelOverride = q('setModelOverride').value;
+                    if (q('setTemp')) s.temp = parseFloat(q('setTemp').value);
+                    if (q('setMaxTokens')) s.maxTokens = parseInt(q('setMaxTokens').value);
+                    if (q('setSystemPrompt')) s.systemPrompt = q('setSystemPrompt').value;
+                    if (q('setTTS')) s.tts = q('setTTS').checked;
+                    if (q('setTtsSpeed')) s.ttsSpeed = parseFloat(q('setTtsSpeed').value);
+                    if (q('setFontSize')) s.fontSize = parseInt(q('setFontSize').value);
+                    localStorage.setItem('astrix_settings', JSON.stringify(s));
+                    sb.innerHTML = '✅ Tersimpan!';
+                    setTimeout(() => {
+                        sb.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> SIMPAN';
+                        document.getElementById('settingsPanel').classList.add('hidden');
+                        document.getElementById('settingsPanel').classList.remove('flex');
+                    }, 800);
+                };
+            }
+        }, 1500);
+    });
+    </script>
+
+    <script>
+    // === CHAT FOLDERS & TAGS ===
+    window.AstrixFolders = {
+        get: () => JSON.parse(localStorage.getItem('astrix_chat_folders') || '{"folders":["📁 Uncategorized"],"chat_folder":{}}'),
+        save: (d) => localStorage.setItem('astrix_chat_folders', JSON.stringify(d)),
+        
+        addFolder: function(name) {
+            const d = this.get();
+            if (!d.folders.includes(name)) {
+                d.folders.push(name);
+                this.save(d);
+            }
+            return d.folders;
+        },
+        
+        setChatFolder: function(chatId, folder) {
+            const d = this.get();
+            d.chat_folder[chatId] = folder;
+            this.save(d);
+        },
+        
+        getChatFolder: function(chatId) {
+            const d = this.get();
+            return d.chat_folder[chatId] || '📁 Uncategorized';
+        },
+        
+        renderFolders: function() {
+            const container = document.getElementById('recentChats');
+            if (!container) return;
+            
+            const d = this.get();
+            const chats = JSON.parse(localStorage.getItem('astrix_chats') || '{}');
+            
+            const grouped = { '📁 Uncategorized': [] };
+            d.folders.forEach(f => { grouped[f] = []; });
+            
+            Object.keys(chats).forEach(id => {
+                const folder = this.getChatFolder(id);
+                if (!grouped[folder]) grouped[folder] = [];
+                grouped[folder].push({id, ...chats[id]});
+            });
+            
+            container.innerHTML = '';
+            
+            Object.keys(grouped).forEach(folderName => {
+                const chats = grouped[folderName];
+                const folderDiv = document.createElement('div');
+                folderDiv.className = 'mb-2';
+                folderDiv.innerHTML = `
+                    <div class="flex items-center justify-between px-2 py-1 text-[10px] text-gray-500 hover:text-gray-300 cursor-pointer" data-folder="${folderName}">
+                        <span>${folderName} (${chats.length})</span>
+                        <span class="folder-toggle">▼</span>
+                    </div>
+                    <div class="folder-content space-y-1" data-folder-content="${folderName}">
+                        ${chats.length === 0 ? '<div class="text-[10px] text-gray-600 italic px-3 py-1">Empty</div>' : ''}
+                        ${chats.sort((a,b) => (b.timestamp||0) - (a.timestamp||0)).map(c => `
+                            <div class="px-3 py-2 text-gray-300 hover:bg-white/5 rounded-md cursor-pointer flex items-center gap-2" data-chat-id="${c.id}">
+                                <i class="ph ph-chat-text text-gray-400 shrink-0"></i>
+                                <span class="truncate flex-1">${(c.title || 'Untitled').slice(0, 30)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(folderDiv);
+            });
+            
+            // Bind clicks
+            container.querySelectorAll('[data-chat-id]').forEach(el => {
+                el.onclick = () => {
+                    if (typeof loadChat === 'function') loadChat(el.dataset.chatId);
+                };
+            });
+            container.querySelectorAll('[data-folder]').forEach(el => {
+                el.onclick = () => {
+                    const content = container.querySelector(`[data-folder-content="${el.dataset.folder}"]`);
+                    const toggle = el.querySelector('.folder-toggle');
+                    if (content) {
+                        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+                        toggle.textContent = content.style.display === 'none' ? '▶' : '▼';
+                    }
+                };
+            });
+        }
+    };
+    
+    // Override renderRecentChats kalau ada
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            if (typeof renderRecentChats === 'function') {
+                const _orig = window.renderRecentChats;
+                window.renderRecentChats = function() {
+                    try { AstrixFolders.renderFolders(); } catch(e) { console.warn('Folder render err:', e); _orig?.(); }
+                };
+                AstrixFolders.renderFolders();
+                console.log('[FOLDERS] Ready');
+            }
+        }, 1500);
+    });
+    </script>
+</body>
+
+</html>
