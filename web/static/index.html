@@ -232,7 +232,7 @@
             const chats = getChats();
             recentChatsContainer.innerHTML = '';
             const ids = Object.keys(chats).sort((a,b) => (chats[b].timestamp||0) - (chats[a].timestamp||0));
-            if (ids.length === 0) { recentChatsContainer.innerHTML = '<div class="text-[10px] text-gray-500 px-3 italic">Belum ada riwayat</div>'; return; }
+            if (ids.length === 0) { recentChatsContainer.innerHTML = '<div class="text-[10px] text-gray-500 px-3 italic">' + (window.currentLang === 'id' ? 'Belum ada riwayat' : 'No chat history yet') + '</div>'; return; }
             ids.forEach(id => {
                 const div = document.createElement('div');
                 div.className = `px-3 py-2 text-gray-300 hover:bg-white/5 rounded-md cursor-pointer flex items-center gap-2 ${id===currentChatId?'bg-white/10 text-white':''}`;
@@ -992,3 +992,19 @@ ${inputEl.value}`;
 </body>
 
 </html>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const hour = new Date().getHours();
+  let timeGreet = "Good morning";
+  let timeGreetId = "Selamat pagi";
+  if (hour >= 12 && hour < 17) { timeGreet = "Good afternoon"; timeGreetId = "Selamat siang"; }
+  else if (hour >= 17 && hour < 21) { timeGreet = "Good evening"; timeGreetId = "Selamat sore"; }
+  else if (hour >= 21 || hour < 5) { timeGreet = "Good night"; timeGreetId = "Selamat malam"; }
+  const titleEl = document.querySelector(".text-5xl");
+  if (titleEl) {
+    const currentText = titleEl.innerText;
+    const namePart = currentText.includes(",") ? currentText.substring(currentText.indexOf(",")) : ", there";
+    titleEl.innerText = (window.currentLang === "id" ? timeGreetId : timeGreet) + namePart;
+  }
+});
+</script>
