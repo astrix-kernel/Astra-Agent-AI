@@ -42,3 +42,27 @@ SELF_EDIT_WHITELIST = [
 
 if not LLM_API_KEY:
     print("⚠️  WARNING: LLM_API_KEY kosong. Copy .env.example ke .env dan isi API key.")
+
+# Folder penampungan file yang dihapus
+from pathlib import Path
+TRASH_DIR = ASTRIX_ROOT / '.trash'
+
+# === AUTO-ADDED MISSING CONFIG ===
+import os
+from pathlib import Path
+
+LOG_FILE = Path(os.environ.get("ASTRIX_WORKSPACE", ".")) / "agent.log"
+ALLOWED_COMMANDS = {"ls", "cat", "grep", "make", "python3", "python", "git", "mkdir", "rm", "mv", "cp", "echo", "pwd", "find", "sed", "awk", "touch", "npm", "node", "gcc", "g++"}
+SELF_ROOT = Path(__file__).parent.parent
+SELF_EDIT_WHITELIST = ["6_agent/", "web/"]
+SELF_EDIT_BLOCK = [".env", "config.py"]
+MAX_FILE_READ_BYTES = 100000
+MAX_TOOL_RESULT_CHARS = 5000
+WRITABLE_EXT = {".c", ".h", ".py", ".txt", ".md", ".json", ".yaml", ".yml", ".sh", ".html", ".css", ".js", ".ts", ".toml", ".ini", ".cfg", ".make", ".mk", ".S", ".asm", ".cpp"}
+WRITABLE_NAMES = {"Makefile", "Dockerfile", "Kconfig"}
+VERIFY_COMPILER = {
+    ".py": ["python3", "-m", "py_compile"],
+    ".c": ["gcc", "-fsyntax-only"],
+    ".h": ["gcc", "-fsyntax-only"],
+    ".cpp": ["g++", "-fsyntax-only"]
+}

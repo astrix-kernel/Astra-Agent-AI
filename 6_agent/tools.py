@@ -217,7 +217,8 @@ def grep(pattern, path=".", max_hits=25):
 
 
 
-def run_command(cmd):
+def run_command(cmd=None, command=None):
+    cmd = cmd or command
     parts = cmd.split()
     if not parts:
         return "ERROR: command kosong"

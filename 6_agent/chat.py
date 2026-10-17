@@ -159,7 +159,7 @@ def chat_turn(history, user_msg, focus="chat", max_tool_rounds=None,
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "deepseek/deepseek-v4-flash",
+        "model": custom_model or "deepseek/deepseek-v4-flash",
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
