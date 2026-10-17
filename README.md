@@ -18,7 +18,7 @@ Local-first AI agent with browser automation, multi-agent orchestration, and lon
 ## Requirements
 
 - Python 3.10+
-- Linux
+- Linux/Archlinux
 - OmniRoute or any OpenAI-compatible API
 - Playwright
 - 8GB+ RAM recommended
@@ -27,8 +27,8 @@ Local-first AI agent with browser automation, multi-agent orchestration, and lon
 
 ### 1. Clone
 
-    git clone https://github.com/astrix-kernel/astrix-agent.git
-    cd astrix-agent
+    git clone https://github.com/astrix-kernel/astro-agent.git
+    cd astro-agent
 
 ### 2. Install dependencies
 
@@ -74,7 +74,7 @@ Open http://localhost:8765 in your browser.
     Run "ls -la" in /tmp and report files
 
 **Long-term memory:**
-    My name is Alex, I'm working on a Rust project
+    My name is Arsa, I'm working on a Python project
 
 ## Architecture
 
@@ -93,8 +93,7 @@ Open http://localhost:8765 in your browser.
     ├── .env.example
     └── README.md
 
-> **Note:** Training pipeline (tokenizer, dataset, model) is in a
-> separate project. The agent uses OmniRoute for LLM routing and
+> **Note:** separate project. The agent uses OmniRoute for LLM routing and
 > does not require local models.
 
 ## Security
