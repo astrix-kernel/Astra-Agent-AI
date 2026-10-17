@@ -1,16 +1,18 @@
-"""LLM client — OmniRoute → Nemotron, retry BRUTAL sampai server kasih."""
+"""LLM client — OmniRoute → Nemotron, BRUTAL retry to love server."""
+
 import json, time, requests
 from requests.adapters import HTTPAdapter
 from config import LLM_URL, LLM_API_KEY
 
-# Session dengan keep-alive + pool besar
+# Session with keep-alive + large pool
 _session = requests.Session()
 _adapter = HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=0)
 _session.mount("http://", _adapter)
 _session.mount("https://", _adapter)
 
 def _build_payload(model_id, messages, max_tokens, temperature, stream=False):
-    """Build payload — reasoning_effort medium untuk model reasoning besar."""
+    """Build payload-reasoning_effect medium for large reasoning models."""
+
     payload = {
         "model": model_id,
         "messages": messages,
@@ -18,19 +20,20 @@ def _build_payload(model_id, messages, max_tokens, temperature, stream=False):
         "temperature": temperature,
         "stream": stream,
     }
-    # Reasoning model butuh effort control biar gak boros token
+    # Reasoning model needs effort control so as not to waste tokens
     if "ultra" in model_id.lower() or "opus" in model_id.lower() or "reasoning" in model_id.lower():
         payload["reasoning_effort"] = "medium"
         payload["chat_template_kwargs"] = {"enable_thinking": True, "reasoning_effort": "medium"}
     return payload
 
-# Timeout: (connect, read) — read sangat panjang, server bisa lambat
+# Timeout: (connect, read) — very long read, server can be slow
 CONNECT_TIMEOUT = 60
-READ_TIMEOUT = 7200  # 2 jam
+READ_TIMEOUT = 7200  # 2 hours
 
 
 def call_llm(messages, max_tokens=None, temperature=None):
-    """Panggil LLM. Handle reasoning model (content=null → naikin max_tokens)."""
+    """Call LLM. Handle reasoning model (content=null naikin max→_tokens)."""
+
     import runtime as _rt
     cfg = _rt.cfg()
     if max_tokens is None:
@@ -90,20 +93,20 @@ def call_llm(messages, max_tokens=None, temperature=None):
                 print(f"  ✅ SUKSES setelah {consecutive_503} retry ({elapsed:.1f}s)", flush=True)
                 consecutive_503 = 0
 
-            # Reasoning model: content null, ada reasoning, kepotong
+            # Reasoning model: content is null, there is reasoning, cut
             if not content and reasoning and finish == "length":
                 new_max = min(max_tokens * 4, 64000)
                 print(f"  ⚠️  Reasoning kepotong, max_tokens {max_tokens} → {new_max}", flush=True)
                 max_tokens = new_max
                 continue
 
-            # Content kosong total
+            # Total empty content
             if not content and not reasoning:
                 print(f"  ⚠️  Response kosong, retry...", flush=True)
                 time.sleep(2)
                 continue
 
-            # Return: utamakan content, fallback ke reasoning
+            # Return: prioritize content, fallback to reasoning
             return content if content else reasoning
 
         except requests.exceptions.ReadTimeout:
@@ -276,10 +279,10 @@ def call_llm_streaming(messages, max_tokens=None, temperature=None, on_chunk=Non
                 try:
                     chunk = _json.loads(data)
                     delta = chunk["choices"][0].get("delta", {})
-                    # Ambil content; kalau null tapi ada reasoning, pakai reasoning (Nemotron Ultra)
+                    # Take content; if null but there is reasoning, use reasoning (Nemotron Ultra)
                     content = delta.get("content") or ""
                     reasoning = delta.get("reasoning_content") or ""
-                    # Cuma pakai reasoning kalau content kosong
+                    # Only use reasoning if the content is empty
                     chunk_text = content if content else reasoning
                     if chunk_text:
                         full.append(chunk_text)

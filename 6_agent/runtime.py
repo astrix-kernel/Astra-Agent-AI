@@ -1,4 +1,5 @@
-"""Runtime mode state — global, di-share semua module."""
+"""Runtime mode state-global, shared by all modules."""
+
 import json
 from pathlib import Path
 from config import LOG_DIR
@@ -42,11 +43,12 @@ def set_mode(name):
 
 
 def cfg():
-    """Return config dict untuk mode aktif."""
+    """Return config dict for active mode."""
+
     return get_mode(get())
 
 
-# ============ MODEL MANAGEMENT ============
+# = = = = = = = = = = = management model = = = = = = = = = = = =
 _MODEL_FILE = LOG_DIR / "model.json"
 _current_model = None
 
@@ -69,7 +71,8 @@ def _save_model():
 
 
 def get_model_key():
-    """Return short key (misal: 'nemotron-ultra')."""
+    """Return short key (ex: 'nemotron-ultra')."""
+
     if _current_model is None:
         _load_model()
     return _current_model
@@ -87,7 +90,8 @@ def set_model(key):
 
 
 def get_model():
-    """Return full model info dict. Raise kalo belum dipilih."""
+    """Return full model info dict. Raise if not already selected."""
+
     from models import MODELS
     key = get_model_key()
     if key is None or key not in MODELS:
@@ -96,5 +100,6 @@ def get_model():
 
 
 def get_model_id():
-    """Return full model ID untuk API call."""
+    """Return full model ID for API call."""
+
     return get_model()["id"]

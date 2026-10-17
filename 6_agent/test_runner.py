@@ -1,4 +1,5 @@
-"""Test runner — detect & run project tests."""
+"""Test runner-detect & run project tests."""
+
 import subprocess, re, time
 from pathlib import Path
 from config import ASTRIX_ROOT

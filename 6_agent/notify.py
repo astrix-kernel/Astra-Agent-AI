@@ -1,4 +1,5 @@
 """Desktop notification + sound."""
+
 import subprocess, shutil, os
 
 
@@ -7,7 +8,8 @@ def _has(cmd):
 
 
 def desktop_notify(title, body, urgency="normal"):
-    """Kirim notifikasi desktop."""
+    """Send desktop notifications."""
+
     if _has("notify-send"):
         try:
             subprocess.Popen(
@@ -22,13 +24,14 @@ def desktop_notify(title, body, urgency="normal"):
 
 
 def play_sound(kind="done"):
-    """Play sound — fallback ke berbagai player."""
-    # Cari file sound
+    """Play sound-fallback to various players."""
+
+    # Search sound files
     sound_dir = os.path.expanduser("~/.astrix-agent/sounds")
     os.makedirs(sound_dir, exist_ok=True)
     sound_file = os.path.join(sound_dir, f"{kind}.oga")
 
-    # Kalau file nggak ada, pakai system sound
+    # If the file does not exist, use the sound system
     if not os.path.exists(sound_file):
         for candidate in [
             "/usr/share/sounds/freedesktop/stereo/complete.oga",
@@ -42,7 +45,7 @@ def play_sound(kind="done"):
     if not os.path.exists(sound_file):
         return False
 
-    # Coba berbagai player
+    # Try out different players
     for player in ["paplay", "pw-play", "aplay", "mpv", "ffplay"]:
         if _has(player):
             try:
@@ -57,18 +60,21 @@ def play_sound(kind="done"):
 
 
 def notify_done(title, body=""):
-    """Task/goal selesai."""
+    """Task/goal completed."""
+
     desktop_notify(f"✅ {title}", body or "Task selesai", "normal")
     play_sound("done")
 
 
 def notify_error(title, body=""):
-    """Ada error yang butuh perhatian."""
+    """There is an error that needs attention."""
+
     desktop_notify(f"⚠️ {title}", body or "Butuh review", "critical")
     play_sound("error")
 
 
 def notify_blocked(title, body=""):
-    """Agent blocked, butuh keputusan user."""
+    """Agent blocked, requires user's decision."""
+
     desktop_notify(f"🛑 {title}", body or "Agent butuh keputusan lu", "critical")
     play_sound("error")

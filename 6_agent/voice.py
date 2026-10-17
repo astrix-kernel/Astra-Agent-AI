@@ -1,4 +1,5 @@
-"""Voice input — record mic + transcribe pakai faster-whisper."""
+"""Voice input-record mic + transcribe using faster-whisper."""
+
 import os, wave, time, threading
 import numpy as np
 import sounddevice as sd
@@ -6,12 +7,12 @@ from pathlib import Path
 from config import LOG_DIR
 
 
-# ============ CONFIG ============
+# Config. 
 SAMPLE_RATE = 16000
 CHANNELS = 1
 MODEL_SIZE = "base"       # tiny, base, small, medium (base = balance)
-LANGUAGE = "id"           # Bahasa Indonesia; ubah ke None buat auto-detect
-DEVICE = None             # None = default device; ubah ke int buat pilih device
+LANGUAGE = "id"           # Indonesian; change to None for auto-detect
+DEVICE = None             # None = default device; change to int to select device
 
 _whisper_model = None
 _recording = False
@@ -20,7 +21,8 @@ _stream = None
 
 
 def _load_model():
-    """Load model sekali, reuse terus."""
+    """Load the model once, reuse it continuously."""
+
     global _whisper_model
     if _whisper_model is None:
         from faster_whisper import WhisperModel
@@ -28,14 +30,15 @@ def _load_model():
         _whisper_model = WhisperModel(
             MODEL_SIZE,
             device="cpu",
-            compute_type="int8",  # hemat RAM, cepat di CPU
+            compute_type="int8",  # save RAM, fast on CPU
         )
         print(f"  ✅ Whisper ready", flush=True)
     return _whisper_model
 
 
 def start_recording():
-    """Mulai rekam dari mic. Return True kalau sukses."""
+    """Start recording from the mic. Return True if successful."""
+
     global _recording, _audio_buffer, _stream
 
     if _recording:
@@ -64,7 +67,8 @@ def start_recording():
 
 
 def stop_recording(save_to=None):
-    """Stop rekam, simpan WAV. Return path atau None."""
+    """Stop record, save WAV. Return path or None."""
+
     global _recording, _stream
 
     if not _recording:
@@ -83,10 +87,10 @@ def stop_recording(save_to=None):
     if not _audio_buffer:
         return None
 
-    # Gabung buffer
+    # Join buffer
     audio = np.concatenate(_audio_buffer, axis=0).flatten()
 
-    # Cek minimal durasi (0.3s)
+    # Minimum check duration (0.3s)
     if len(audio) < SAMPLE_RATE * 0.3:
         return None
 
@@ -95,7 +99,7 @@ def stop_recording(save_to=None):
     if peak > 0:
         audio = audio / peak * 0.95
 
-    # Simpan WAV
+    # Save WAV
     if save_to is None:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         save_to = LOG_DIR / "voice_last.wav"
@@ -111,7 +115,8 @@ def stop_recording(save_to=None):
 
 
 def transcribe(audio_path):
-    """Transcribe WAV ke text — pakai soundfile (bypass PyAV yang bug)."""
+    """Transcribe WAV to text — use a soundfile (a bug PyAV bypass)."""
+
     import soundfile as sf
     import numpy as np
     model = _load_model()
@@ -141,7 +146,7 @@ def is_recording():
     return _recording
 
 
-# ============ HIGH-LEVEL: ONE-SHOT ============
+# = = = = = = = = = = = high-level: one-shot = = = = = = = = = = = =
 def record_and_transcribe(duration=None, silence_timeout=2.0):
     """
     Rekam sampai silence atau max duration, langsung transcribe.
@@ -162,9 +167,10 @@ def record_and_transcribe(duration=None, silence_timeout=2.0):
     return transcribe(wav)
 
 
-# ============ TERMINAL MODE (interaktif) ============
+# = = = = = = = = = = = TERMINAL MODE (interactive) = = = = = = = = = = = = =
 def voice_cli():
-    """Rekam via tekan Enter buat mulai, Enter lagi buat stop."""
+    """Record via press Enter to start, Enter again to stop."""
+
     print("  🎤 Tekan Enter buat MULAI rekam...")
     input()
     print("  🔴 RECORDING... (Enter buat stop)")
@@ -174,7 +180,7 @@ def voice_cli():
     stop_thread.daemon = True
     stop_thread.start()
 
-    # Tunggu user Enter
+    # Wait for user Enter
     while stop_thread.is_alive():
         stop_thread.join(timeout=0.1)
 
@@ -192,7 +198,7 @@ def voice_cli():
 
 
 
-# ============ AUTO-STOP ON SILENCE ============
+# = = = = = = = = = = auto-stop on silence = = = = = = = = = = =
 def record_until_silence(silence_duration=1.5, max_duration=30.0,
                         silence_threshold=0.05):
     """
@@ -217,7 +223,7 @@ def record_until_silence(silence_duration=1.5, max_duration=30.0,
             print("  ⏱️  Max duration reached")
             break
 
-        # Cek volume buffer terakhir
+        # Check last buffer volume
         if _audio_buffer:
             recent = _audio_buffer[-10:] if len(_audio_buffer) >= 10 else _audio_buffer
             import numpy as np
@@ -233,7 +239,7 @@ def record_until_silence(silence_duration=1.5, max_duration=30.0,
                     print("  🔇 Silence detected, stop")
                     break
             else:
-                silence_start = None  # reset kalau ada suara lagi
+                silence_start = None  # reset if there is another sound
 
     wav = stop_recording()
     if not wav:
@@ -244,5 +250,6 @@ def record_until_silence(silence_duration=1.5, max_duration=30.0,
 
 
 def voice_auto():
-    """One-shot: klik → ngomong → auto-stop → return text."""
+    """One-shot: click → say → auto-stop → return text."""
+
     return record_until_silence()

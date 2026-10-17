@@ -1,11 +1,13 @@
-"""Terminal command runner untuk Web UI."""
+"""Terminal command runner for Web UI."""
+
 import subprocess, shlex, time
 from pathlib import Path
 from config import ASTRIX_ROOT, ALLOWED_COMMANDS
 
 
 def is_allowed(cmd_str):
-    """Cek command allowed."""
+    """Check the allowed command."""
+
     try:
         parts = shlex.split(cmd_str)
         if not parts:
@@ -52,7 +54,8 @@ def run(cmd_str, timeout=60):
 
 
 def format_result(r):
-    """Format jadi output rapi."""
+    """The format so the output is neat."""
+
     if "error" in r:
         return f"❌ {r['error']}"
     out = [f"$ {r['cmd']}"]

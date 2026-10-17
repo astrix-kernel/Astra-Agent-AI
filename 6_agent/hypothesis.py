@@ -1,4 +1,5 @@
-"""Hypothesis-driven debugging — agent bertindak kayak detektif."""
+"""Hypothesis-driven debugging-agent acts like a detective."""
+
 
 HYPOTHESIS_PROMPT = """Kamu adalah **Debug Detective** — detektif bug yang metodis.
 
@@ -10,7 +11,7 @@ Bukan nebak-nebak. Kamu harus:
 5. Eliminasi yang salah
 6. Konklusi dari yang tersisa
 
-## FORMAT KERJA
+## working format
 
 **Fase 1 — INVESTIGASI**
 Baca dulu: log error, kode terkait, config. Kumpulkan evidence.
@@ -27,7 +28,7 @@ Test hipotesis #1 pakai tool. Hasil → eliminate atau confirm.
 **Fase 4 — KONKLUSI**
 Cuma hipotesis yang lulus test yang di-anggap benar.
 
-## ATURAN KETAT
+## strict rules
 - JANGAN langsung fix tanpa test hipotesis dulu
 - Kalau ada 2+ hipotesis yang mirip, test keduanya
 - Kalau semua hipotesis gagal, MUNDUR dan bikin hipotesis baru
@@ -36,7 +37,8 @@ Cuma hipotesis yang lulus test yang di-anggap benar.
 
 
 def is_debug_task(user_msg):
-    """Cek apakah ini task debugging."""
+    """Check if this is task debugging."""
+
     m = user_msg.lower()
     triggers = ["error", "bug", "crash", "panic", "fail", "gagal",
                 "rusak", "broken", "nggak jalan", "kok", "kenapa", "why",
@@ -45,7 +47,8 @@ def is_debug_task(user_msg):
 
 
 def build_debug_context(error_text="", file_context=""):
-    """Bikin prompt konteks buat debugging."""
+    """Create a context prompt for debugging."""
+
     parts = []
     if error_text:
         parts.append(f"## ERROR/LOG\n{error_text[:2000]}")
@@ -55,7 +58,8 @@ def build_debug_context(error_text="", file_context=""):
 
 
 def format_hypotheses(hypotheses):
-    """Format list hipotesis jadi string."""
+    """Format the hypothesis list into a string."""
+
     if not hypotheses:
         return ""
     lines = ["## 🕵️ HIPOTESIS"]

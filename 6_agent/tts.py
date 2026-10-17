@@ -1,4 +1,5 @@
-"""Text-to-Speech pakai Piper — offline, cepat."""
+"""Text-to-Speech using Piper-offline, fast."""
+
 import os, subprocess, shutil, tempfile
 from pathlib import Path
 
@@ -12,7 +13,8 @@ def _has(cmd):
 
 
 def _speak_with(cmd, wav):
-    """Play WAV pakai player yang tersedia."""
+    """Play WAV using the available player."""
+
     try:
         if cmd == "paplay":
             subprocess.run(["paplay", wav], check=True, timeout=30,
@@ -70,8 +72,9 @@ def synthesize(text, voice=None, output=None):
 
 
 def speak(text, voice=None):
-    """Synthesize + play. Fallback ke espeak-ng kalau Piper nggak ready."""
-    # Coba Piper dulu
+    """Synthesize + play. Fallback toespeak-ng if Piper is not ready."""
+
+    # Try Piper first
     if DEFAULT_VOICE.exists() and DEFAULT_VOICE.stat().st_size > 10000000 and _has("piper"):
         wav = synthesize(text, voice=voice)
         if wav:
@@ -80,7 +83,7 @@ def speak(text, voice=None):
                     if _speak_with(player, wav):
                         return True
 
-    # Fallback: espeak-ng (robot, tapi selalu jalan)
+    # Fallback:espeak-ng (robot, but always running)
     if _has("espeak-ng"):
         try:
             subprocess.run(
@@ -96,7 +99,8 @@ def speak(text, voice=None):
 
 
 def is_available():
-    """Cek apakah TTS siap dipakai."""
+    """Check if the TTS is ready to use."""
+
     if not DEFAULT_VOICE.exists():
         return False
     if not _has("piper"):

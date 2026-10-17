@@ -1,4 +1,5 @@
-"""Inget fakta tentang user — biar kayak temen yang beneran kenal."""
+"""Remember the facts about the user — so it's like a friend who really knows."""
+
 import json, time
 from pathlib import Path
 from config import LOG_DIR
@@ -22,7 +23,8 @@ def save(d):
 
 
 def add_fact(fact):
-    """Simpen fakta baru tentang user."""
+    """Simplify new facts about users."""
+
     d = load()
     fact = fact.strip()
     if not fact or len(fact) < 5 or len(fact) > 200:
@@ -30,16 +32,17 @@ def add_fact(fact):
     if fact in d["facts"]:
         return
     d["facts"].append(fact)
-    # Keep max 50 fakta
+    # Keep max 50 facts
     d["facts"] = d["facts"][-50:]
     save(d)
 
 
 def remember_facts(user_msg, agent_response):
-    """Extract fakta dari percakapan pakai pattern matching."""
+    """Extract facts from conversations using pattern matching."""
+
     msg = user_msg.lower()
 
-    # Pattern fakta
+    # Factual pattern
     patterns = [
         ("lagi ", lambda m: m.split("lagi", 1)[1].strip()[:100] if "lagi" in m else None),
         ("gw suka", lambda m: m.split("gw suka", 1)[1].strip()[:100] if "gw suka" in m else None),
@@ -56,7 +59,7 @@ def remember_facts(user_msg, agent_response):
         except Exception:
             pass
 
-    # Simpen streak harian
+    # Simpen streak daily
     d = load()
     last = d.get("last_seen", 0)
     now = time.time()
@@ -66,7 +69,8 @@ def remember_facts(user_msg, agent_response):
 
 
 def memory_prompt():
-    """Bikin blok prompt berisi fakta user."""
+    """Create a prompt block containing user facts."""
+
     d = load()
     facts = d.get("facts", [])
     streak = d.get("streak_days", 0)
@@ -77,14 +81,15 @@ def memory_prompt():
     parts = ["## YANG LO INGET TENTANG USER"]
     if streak > 0:
         parts.append(f"- Kalian udah ngobrol {streak + 1} hari berturut-turut")
-    for f in facts[-5:]:  # Max 5 fakta terakhir
+    for f in facts[-5:]:  # Max last 5 facts
         parts.append(f"- {f}")
     parts.append("Sebutin fakta ini sesekali biar kayak temen yang beneran inget.")
     return "\n".join(parts)
 
 
 def greeting_extra():
-    """Extra greeting kalau user balik setelah lama."""
+    """Extra greeting if the user returns after a long time."""
+
     d = load()
     last = d.get("last_seen", 0)
     now = time.time()

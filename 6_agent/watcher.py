@@ -1,4 +1,5 @@
-"""File watcher — track perubahan file di workspace."""
+"""File watcher — track file changes in the workspace."""
+
 import threading, time
 from pathlib import Path
 from config import ASTRIX_ROOT

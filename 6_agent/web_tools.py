@@ -1,4 +1,5 @@
 """Web access tools — Bing + Wikipedia (no DDG, anti ISP block)."""
+
 import re
 import ssl
 import json
@@ -10,45 +11,46 @@ _UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like
 
 
 def _bing_search(query, max_results=5):
-    """Bing HTML scraping — parser baru buat format modern 2024+."""
+    """Bing HTML scraping — a new parser for modern 2024+ format."""
+
     try:
         url = "https://www.bing.com/search?q=" + urllib.parse.quote(query) + "&setlang=id&cc=ID"
         req = urllib.request.Request(url, headers={'User-Agent': _UA, 'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8'})
         html = urllib.request.urlopen(req, timeout=15, context=_ctx).read().decode('utf-8', errors='ignore')
         
         results = []
-        # Split by b_algo blocks (jangan sampe ke-merge)
+        # Split by b_algo blocks
         blocks = re.split(r'<li class="b_algo"', html)
         
-        for block in blocks[1:]:  # skip pertama (sebelum block pertama)
+        for block in blocks[1:]:  # first skip (before the first block)
             if len(results) >= max_results:
                 break
             
-            # Title & URL — cari <h2><a href="...">
+            # Title & URL — Search <h2><a href="...">
             tm = re.search(r'<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', block, re.DOTALL)
             if not tm:
                 continue
             href = tm.group(1).replace('&amp;', '&')
             title = re.sub(r'<.*?>', '', tm.group(2)).strip()
             
-            # Decode Bing redirect URL (kalau ada)
+            # Decode Bing redirect URL (if applicable)
             if 'bing.com/ck/a' in href:
-                # Coba extract u parameter (base64 encoded URL)
+                # Try extracting u parameters (base64 encoded URL)
                 um = re.search(r'[?&]u=a1([^&]+)', href)
                 if um:
                     try:
                         import base64
                         b64 = um.group(1)
-                        # Pad base64
+                        # Base64 pad
                         while len(b64) % 4: b64 += '='
                         decoded = base64.urlsafe_b64decode(b64).decode('utf-8', errors='ignore')
                         if decoded.startswith('http'):
                             href = decoded
                     except: pass
             
-            # Skip kalau masih redirect atau bukan http
+            # Skip if it's still redirect or not http
             if 'bing.com' in href or not href.startswith('http'):
-                # Coba cari cite / visible URL di block
+                # Try looking for cite / visible URL in the block
                 cm = re.search(r'<cite[^>]*>([^<]+)</cite>', block)
                 if cm:
                     visible = cm.group(1).strip()
@@ -58,7 +60,7 @@ def _bing_search(query, max_results=5):
                 else:
                     continue
             
-            # Snippet — cari <p class="b_lineclamp..."> atau <p> pertama
+            # Snippets — search <p class="b_lineclamp..."> or <p> first
             sm = re.search(r'<p[^>]*class="[^"]*b_lineclamp[^"]*"[^>]*>(.*?)</p>', block, re.DOTALL)
             if not sm:
                 sm = re.search(r'<div class="b_caption"[^>]*>.*?<p[^>]*>(.*?)</p>', block, re.DOTALL)
@@ -75,9 +77,10 @@ def _bing_search(query, max_results=5):
 
 
 def _wiki_search(query, max_results=5):
-    """Wikipedia API — paling stabil karena API resmi."""
+    """Wikipedia API — most stable because of THE OFFICIAL API."""
+
     try:
-        # Coba Indonesia dulu, fallback ke English
+        # Try Indonesia first, fallback to English
         for lang in ['id', 'en']:
             url = f"https://{lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + urllib.parse.quote(query) + f"&format=json&srlimit={max_results}"
             req = urllib.request.Request(url, headers={'User-Agent': 'AstrixAI/1.0 (Local)'})
@@ -98,7 +101,8 @@ def _wiki_search(query, max_results=5):
 
 
 def _duckduckgo_html(query, max_results=5):
-    """DDG HTML (fallback terakhir, sering diblokir di ID)."""
+    """HTML DDG (last fallback, often blocked in ID)."""
+
     try:
         url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(query)
         req = urllib.request.Request(url, headers={'User-Agent': _UA})
@@ -129,13 +133,14 @@ def _duckduckgo_html(query, max_results=5):
 
 
 def web_search(query, max_results=5):
-    """Cari di internet — coba Bing, lalu Wikipedia, lalu DDG."""
-    # Bing first (paling mungkin work di ID)
+    """Search the internet-try Bing, then Wikipedia, then DDG."""
+
+    # Bing first (most likely work on ID)
     results = _bing_search(query, max_results)
     if results:
         return f"🔍 Hasil pencarian '{query}' (via Bing):\n\n" + "\n\n".join(results)
     
-    # Wikipedia fallback (paling stabil, tapi artikel-based)
+    # Wikipedia fallback (most stable, but article-based)
     results = _wiki_search(query, max_results)
     if results:
         return f"🔍 Hasil Wikipedia untuk '{query}':\n\n" + "\n\n".join(results)
@@ -149,7 +154,8 @@ def web_search(query, max_results=5):
 
 
 def browse_url(url):
-    """Buka & baca isi halaman web."""
+    """Open & read the contents of the web page."""
+
     try:
         req = urllib.request.Request(url, headers={'User-Agent': _UA, 'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8'})
         html = urllib.request.urlopen(req, timeout=20, context=_ctx).read().decode('utf-8', errors='ignore')

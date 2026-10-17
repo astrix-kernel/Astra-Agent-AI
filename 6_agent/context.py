@@ -1,4 +1,5 @@
-"""Smart Context Builder — auto-cari file relevan untuk task."""
+"""Smart Context Builder — auto-find relevant files for the task."""
+
 import re
 from pathlib import Path
 from config import ASTRIX_ROOT
@@ -11,13 +12,14 @@ STOP_WORDS = {"yang", "untuk", "dengan", "atau", "dan", "di", "ke", "dari",
 
 
 def _keywords(text):
-    """Ekstrak keyword penting dari task description."""
+    """Extract important keywords from the task description."""
+
     words = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]{2,}', text.lower())
     kws = set()
     for w in words:
         if w not in STOP_WORDS and len(w) >= 3:
             kws.add(w)
-    # Tambah identifier dari path kalau ada
+    # Add identifier from path if any
     for m in re.findall(r'[\w/]+\.(c|h|s|asm|ld|mk)', text):
         kws.add(m)
     return kws
@@ -35,7 +37,7 @@ def find_relevant_files(task_desc, max_files=5, max_chars_per_file=3000):
     root = ASTRIX_ROOT
     scored = []  # (score, path, content)
 
-    # Scan hanya file .c/.h/.S/.ld/Makefile
+    # Scan only .c/.h/.s/.ld/Makefile files
     valid_ext = {".c", ".h", ".S", ".s", ".asm", ".ld", ".lds", ".mk"}
     valid_names = {"Makefile", "Kconfig", "Kbuild"}
 
@@ -47,7 +49,7 @@ def find_relevant_files(task_desc, max_files=5, max_chars_per_file=3000):
         if any(skip in str(p) for skip in [".git", "build/", "__pycache__", ".kilo", ".bak", ".backup-", ".old"]):
             continue
 
-        # Score dari nama file
+        # Score from filename
         name_lower = p.name.lower()
         score = 0
         for kw in kws:
@@ -57,7 +59,7 @@ def find_relevant_files(task_desc, max_files=5, max_chars_per_file=3000):
                 score += 2
 
         if score == 0:
-            # Belum tentu nggak relevan — cek isi
+            # Not necessarily irrelevant — check the contents
             try:
                 if p.stat().st_size > 100_000:
                     continue
@@ -89,7 +91,8 @@ def find_relevant_files(task_desc, max_files=5, max_chars_per_file=3000):
 
 
 def build_context_block(task_desc, max_files=5):
-    """Return string konteks siap di-inject ke prompt."""
+    """The context return string is ready to be injected into the prompt."""
+
     files = find_relevant_files(task_desc, max_files=max_files)
     if not files:
         return ""
@@ -103,7 +106,8 @@ def build_context_block(task_desc, max_files=5):
 
 
 def get_project_tree(max_depth=2, max_files_per_dir=15):
-    """Ringkasan struktur project."""
+    """Summary of the project structure."""
+
     root = ASTRIX_ROOT
     lines = []
 
@@ -130,4 +134,4 @@ def get_project_tree(max_depth=2, max_files_per_dir=15):
                 lines.append(f"{'  ' * depth}📄 {rel}")
 
     walk(root, 0)
-    return "\n".join(lines[:200])  # cap
+    return "\n".join(lines[:200])  # seal

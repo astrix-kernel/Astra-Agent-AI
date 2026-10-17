@@ -1,11 +1,12 @@
-"""Budget mode — atur konsumsi Nemotron 3 Ultra."""
+"""Budget mode — set the consumption of Nemotron 3 Ultra."""
+
 
 MODES = {
     "minimum": {
         "icon": "🌱",
         "label": "Hemat",
         "desc": "Hemat token & waktu. Buat task kecil, chat singkat.",
-        # LLM
+        # LLMs.
         "temperature": 0.05,
         "max_tokens_chat": 1024,
         "max_tokens_executor": 2048,
