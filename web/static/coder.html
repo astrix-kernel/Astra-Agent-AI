@@ -2,52 +2,130 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Astra Coder Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astra Elite Coder</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { background-color: #0a0c10; color: #e2e8f0; font-family: ui-sans-serif, system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .glow-btn:hover { box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+    </style>
 </head>
-<body class="bg-gray-900 text-white font-sans p-8">
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold mb-6 text-blue-400">🛠️ Astra Coder Mode</h1>
-        <p class="text-gray-400 mb-8">Standalone coding agent for scanning, fixing, and building code.</p>
+<body class="p-6">
 
-        <!-- Scan & Remove Section -->
-        <div class="bg-gray-800 p-6 rounded-xl mb-6">
-            <h2 class="text-xl font-bold mb-4">1. Scan & Clean Code</h2>
-            <input id="scanPath" type="text" placeholder="File path (e.g., web/server.py)" class="w-full p-2 mb-2 bg-gray-700 rounded text-white">
-            <button onclick="scanCode()" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 mb-4">Scan for Bugs</button>
-            <button onclick="removeCode()" class="bg-red-600 px-4 py-2 rounded hover:bg-red-500 mb-4">Remove Unused Line</button>
-            <input id="removePattern" type="text" placeholder="Text to remove (e.g., print('debug'))" class="w-full p-2 mb-2 bg-gray-700 rounded text-white">
-            <pre id="scanResult" class="bg-black p-4 rounded text-sm text-green-400 mt-4 h-32 overflow-y-auto">Result will appear here...</pre>
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-4 pb-4 border-b border-white/10 shrink-0">
+        <div class="flex items-center gap-3">
+            <a href="/" class="text-gray-400 hover:text-white transition"><i class="ph ph-arrow-left text-xl"></i> Back</a>
+            <h1 class="text-2xl font-bold text-blue-400 ml-4">⚡ Astra Elite Coder</h1>
+        </div>
+        <div class="text-xs text-green-400 font-mono flex items-center gap-2">
+            <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span> Agent Autonomous Mode
+        </div>
+    </header>
+
+    <div class="flex flex-1 gap-6 overflow-hidden">
+        <!-- Sidebar: Features -->
+        <div class="w-80 flex flex-col gap-3 shrink-0 overflow-y-auto pr-2">
+            <div class="text-xs text-gray-500 font-bold tracking-wider mb-1">QUICK ACTIONS</div>
+            
+            <button onclick="runAgent('Scan the entire workspace for syntax errors, bugs, or missing files. Fix them automatically.')" class="glow-btn bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 p-3 rounded-xl text-left transition group">
+                <div class="flex items-center gap-2 font-bold text-blue-400 mb-1"><i class="ph ph-magnifying-glass text-lg"></i> Scan & Fix Bugs</div>
+                <div class="text-[11px] text-gray-400">Find errors and automatically patch them.</div>
+            </button>
+
+            <button onclick="runAgent('Create a new C project with main.c, utils.h, and a Makefile. Ensure it compiles.')" class="glow-btn bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 p-3 rounded-xl text-left transition group">
+                <div class="flex items-center gap-2 font-bold text-emerald-400 mb-1"><i class="ph ph-file-plus text-lg"></i> Generate Boilerplate</div>
+                <div class="text-[11px] text-gray-400">Auto-create .c, .h, .S, and Makefiles.</div>
+            </button>
+
+            <button onclick="runAgent('Analyze Python files and remove unused imports, dead code, and unused variables to optimize performance.')" class="glow-btn bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 p-3 rounded-xl text-left transition group">
+                <div class="flex items-center gap-2 font-bold text-purple-400 mb-1"><i class="ph ph-broom text-lg"></i> Clean Dead Code</div>
+                <div class="text-[11px] text-gray-400">Remove unused code and optimize files.</div>
+            </button>
+
+            <button onclick="runAgent('Run make -j4 to build the project. If there are compiler errors, fix the source code automatically and rebuild until success.')" class="glow-btn bg-orange-600/20 hover:bg-orange-600/40 border border-orange-500/30 p-3 rounded-xl text-left transition group">
+                <div class="flex items-center gap-2 font-bold text-orange-400 mb-1"><i class="ph ph-hammer text-lg"></i> Auto-Build Project</div>
+                <div class="text-[11px] text-gray-400">Compile project and fix errors on the fly.</div>
+            </button>
+
+            <div class="text-xs text-gray-500 font-bold tracking-wider mt-4 mb-1">CUSTOM PROMPT</div>
+            <textarea id="customPrompt" rows="3" placeholder="Or type custom command..." class="w-full bg-[#161b22] text-white text-sm p-3 rounded-xl outline-none border border-white/10 focus:border-blue-500 transition"></textarea>
+            <button onclick="runCustom()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl transition shadow-lg">Execute Custom</button>
         </div>
 
-        <!-- Write & Build Section -->
-        <div class="bg-gray-800 p-6 rounded-xl">
-            <h2 class="text-xl font-bold mb-4">2. Auto Build Project</h2>
-            <input id="buildCmd" type="text" value="make -j4" class="w-full p-2 mb-2 bg-gray-700 rounded text-white">
-            <button onclick="buildProject()" class="bg-green-600 px-4 py-2 rounded hover:bg-green-500">Run Build</button>
-            <pre id="buildResult" class="bg-black p-4 rounded text-sm text-yellow-400 mt-4 h-32 overflow-y-auto">Build output will appear here...</pre>
+        <!-- Main Output Terminal -->
+        <div class="flex-1 bg-[#0d1117] border border-white/10 rounded-xl flex flex-col overflow-hidden relative">
+            <div class="bg-[#161b22] px-4 py-2 border-b border-white/10 flex items-center justify-between shrink-0">
+                <div class="text-xs text-gray-400 font-mono">Agent Activity Log</div>
+                <button onclick="document.getElementById('terminal').innerHTML=''" class="text-[10px] text-gray-500 hover:text-white">Clear</button>
+            </div>
+            <div id="terminal" class="flex-1 p-4 overflow-y-auto custom-scrollbar font-mono text-sm space-y-2">
+                <div class="text-gray-500 italic">Waiting for commands...</div>
+            </div>
         </div>
     </div>
 
     <script>
-        async function scanCode() {
-            const path = document.getElementById('scanPath').value;
-            const res = await fetch('/api/coder/scan', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file_path: path}) });
-            const data = await res.json();
-            document.getElementById('scanResult').innerText = data.result;
+        const terminal = document.getElementById('terminal');
+
+        function appendLog(text, color = "text-gray-300") {
+            const div = document.createElement('div');
+            div.className = `${color} mb-1`;
+            div.innerHTML = text;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
         }
-        async function removeCode() {
-            const path = document.getElementById('scanPath').value;
-            const pattern = document.getElementById('removePattern').value;
-            const res = await fetch('/api/coder/remove', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file_path: path, pattern: pattern}) });
-            const data = await res.json();
-            document.getElementById('scanResult').innerText = data.result;
+
+        async function runAgent(prompt) {
+            appendLog(`<span class="text-blue-400 font-bold">></span> ${prompt}`, "text-gray-200");
+            appendLog(`<span class="text-yellow-400 text-xs">[SYSTEM] Initializing Agent Workflow...</span>`);
+            
+            try {
+                const res = await fetch('/api/goal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ goal: prompt, max_tasks: 10 })
+                });
+
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+                const data = await res.json();
+                
+                if (data.error) {
+                    appendLog(`<span class="text-red-400">[ERROR] ${data.error}</span>`);
+                } else {
+                    if (data.tasks) {
+                        data.tasks.forEach((task, i) => {
+                            appendLog(`<span class="text-gray-500">  [${i+1}] ${task}</span>`);
+                        });
+                    }
+                    if (data.logs) {
+                        data.logs.forEach(log => {
+                            if(log.includes('Tool')) appendLog(`<span class="text-emerald-400">  ${log}</span>`);
+                            else appendLog(`<span class="text-gray-500 text-xs">  ${log}</span>`);
+                        });
+                    }
+                    if (data.results) {
+                        data.results.forEach(res => {
+                            appendLog(`<div class="bg-white/5 p-3 rounded-lg mt-2 border border-white/10 text-gray-300 whitespace-pre-wrap">${res}</div>`);
+                        });
+                    }
+                    appendLog(`<span class="text-green-400 font-bold mt-2 block">[SUCCESS] Task Completed.</span>`);
+                }
+            } catch (e) {
+                appendLog(`<span class="text-red-400">[FATAL] ${e.message}</span>`);
+            }
         }
-        async function buildProject() {
-            const cmd = document.getElementById('buildCmd').value;
-            const res = await fetch('/api/coder/build', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({command: cmd}) });
-            const data = await res.json();
-            document.getElementById('buildResult').innerText = data.result;
+
+        function runCustom() {
+            const val = document.getElementById('customPrompt').value.trim();
+            if (val) {
+                document.getElementById('customPrompt').value = '';
+                runAgent(val);
+            }
         }
     </script>
 </body>

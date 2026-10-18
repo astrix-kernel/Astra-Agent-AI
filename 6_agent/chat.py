@@ -17,6 +17,7 @@ def _build_messages(history, user_msg, system_prompt):
     return msgs
 
 
+
 def _stream_api(url, headers, payload, on_chunk, timeout=(10, 300)):
     """Stream from OpenAI-compatible APIS. Return full text."""
 

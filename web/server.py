@@ -420,7 +420,7 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
             print(f"[BYPASS] Selesai: {len(collected)} chunks", flush=True)
             
             if not collected:
-                yield f"data: {_json.dumps({'type': 'chunk', 'text': '⚠️ API kasih response kosong. Coba model lain atau tunggu 60 detik.'})}\n\n"
+                yield f"data: {_json.dumps({'type': 'chunk', 'text': '⚠️ [ERROR] Empty response from API. The model may be rate-limited, out of credits, or currently down.'})}\n\n"
             else:
                 for c in collected:
                     yield f"data: {_json.dumps({'type': 'chunk', 'text': c})}\n\n"
@@ -489,19 +489,37 @@ def _do_chat(msg, focus, web_search=False):
 
 
 @app.post("/api/goal")
-async def goal(req: GoalReq):
-    from loop import run_goal
-    threading.Thread(
-        target=_run_in_thread,
-        args=(run_goal, req.goal),
-        daemon=True,
-    ).start()
-    return {"ok": True}
-
-
-class ModeReq(BaseModel):
-    mode: str
-
+async def goal(req: dict):
+    from multi_agent import run_multi_agent
+    import asyncio
+    
+    goal_text = req.get("goal", "").strip()
+    if not goal_text:
+        return {"error": "Goal kosong"}
+        
+    max_tasks = req.get("max_tasks", 5)
+    coder_mode = req.get("coder_mode", False)
+    from models import MODELS
+    raw_model = req.get("model", "")
+    model = MODELS.get(raw_model, {}).get("id", raw_model)
+    
+    loop = asyncio.get_event_loop()
+    logs = []
+    def on_log(msg):
+        logs.append(msg)
+        print(f"[MULTI-API] {msg}", flush=True)
+        
+    try:
+        result = await loop.run_in_executor(
+            None, 
+            lambda: run_multi_agent(goal_text, on_log=on_log, max_tasks=max_tasks, model=model, coder_mode=coder_mode)
+        )
+        result["logs"] = logs
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e), "logs": logs}
 
 @app.get("/api/mode")
 async def get_mode_api():
@@ -1601,6 +1619,7 @@ async def multi_agent_run(req: dict):
         return {"error": "Goal kosong"}
     
     max_tasks = req.get("max_tasks", 5)
+    coder_mode = req.get("coder_mode", False)
     base_url = req.get("base_url") or None
     api_key = req.get("api_key") or None
     model = req.get("model") or None
@@ -1615,7 +1634,7 @@ async def multi_agent_run(req: dict):
         result = await loop.run_in_executor(
             None, 
             lambda: run_multi_agent(goal, on_log=on_log, max_tasks=max_tasks,
-                                    base_url=base_url, api_key=api_key, model=model)
+                                    base_url=base_url, api_key=api_key, model=model, coder_mode=coder_mode)
         )
         result["logs"] = logs
         return result

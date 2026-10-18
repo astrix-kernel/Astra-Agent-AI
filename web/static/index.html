@@ -38,7 +38,7 @@
         <div class="px-3 space-y-1 mt-2">
             <button class="w-full flex items-center gap-3 px-3 py-2.5 bg-white/10 rounded-lg text-white font-medium"><i class="ph ph-chat-circle text-lg"></i> <span data-i18n="chat">Chat</span></button>
             <button id="openExtensionsBtn" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-lg transition"><i class="ph ph-puzzle-piece text-lg"></i> <span>Extensions</span></button>
-            <button onclick="window.location.href='/static/coder.html'" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-xl transition text-sm"><i class="ph ph-code text-lg"></i> <span>Coder Mode</span></button>
+            
             <button id="openSettingsBtn" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-lg transition"><i class="ph ph-gear text-lg"></i> <span data-i18n="settings">Settings</span></button>
         </div>
         <div class="px-5 mt-6 mb-2 flex items-center justify-between">
@@ -211,7 +211,10 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    
+
+
+document.addEventListener('DOMContentLoaded', () => {
         let isGenerating = false, isWebSearch = false, currentChatId = null, currentChatMessages = [], selectedModel = null, allModels = [];
 
         const input = document.getElementById('input');
@@ -286,6 +289,64 @@
 
         let _currentAbortController = null;
         async function handleSend() {
+    // JIKA CODER MODE AKTIF, LEMPAR KE SISTEM AGENT (MULTI-AGENT) YANG PUNYA TOOLS
+    if (window.isCoderModeActive) {
+        const input = document.getElementById('input');
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        
+        // Tampilkan pesan user di chat
+        welcomeScreen.style.display = 'none';
+        quickPrompts.style.display = 'none';
+        chatMessages.classList.remove('hidden');
+        addMsg(text, 'user');
+        
+        // Tampilkan status loading
+        const bId = 'agent-' + Date.now();
+        const _langA = JSON.parse(localStorage.getItem('astrix_settings') || '{}').language || 'id';
+        const _thinkTxtA = _langA === 'en' ? 'Thinking' : 'Berpikir';
+        const div = document.createElement('div');
+        div.className = 'flex gap-4 mt-4';
+        div.id = bId;
+        div.innerHTML = `<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-purple-600 shadow-lg"><i class="ph ph-robot text-white"></i></div><div class="max-w-[85%] text-sm text-gray-200 pt-1" id="${bId}-text"><span class="text-gray-400 italic">🧠 ${_thinkTxtA}<span class="animate-pulse">...</span></span></div>`;
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        try {
+            const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+            const res = await fetch('/api/goal', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    goal: text,
+                    max_tasks: 10,
+                    model: s.modelOverride || (selectedModel ? selectedModel.id : ''),
+                    coder_mode: true
+                })
+            });
+            const data = await res.json();
+            const textEl = document.getElementById(`${bId}-text`);
+            
+            if (data.error) {
+                textEl.innerHTML = `<span class="text-red-400">❌ Error: ${data.error}</span>`;
+            } else {
+                let out = '<span class="text-green-400 font-bold">✅ Tugas Selesai!</span><br><br>';
+                if (data.tasks) {
+                    out += '<b>Rencana:</b><br>' + data.tasks.map(t => `- ${t}`).join('<br>') + '<br><br>';
+                }
+                if (data.results) {
+                    out += '<b>Hasil:</b><br>' + data.results.join('<br><br>');
+                }
+                textEl.innerHTML = out;
+            }
+        } catch(e) {
+            document.getElementById(`${bId}-text`).innerHTML = `<span class="text-red-400">❌ Gagal konek ke Agent: ${e.message}</span>`;
+        }
+        return;
+    }
+    
+    // JIKA CODER MODE OFF, JALANIN KODE ASLI (CHATBIASA)
             if (isGenerating) {
                 // STOP: call backend + abort local fetch
                 try {
@@ -350,7 +411,9 @@
                 const div = document.createElement('div');
                 div.className = 'flex gap-4 mt-4';
                 div.id = bId;
-                div.innerHTML = `<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-blue-600 shadow-lg"><i class="ph ph-sparkle text-white"></i></div><div class="max-w-[85%] text-sm text-gray-200 pt-1" id="${bId}-text"></div>`;
+                const _langS = JSON.parse(localStorage.getItem('astrix_settings') || '{}').language || 'id';
+                const _thinkS = _langS === 'en' ? 'Thinking' : 'Berpikir';
+                div.innerHTML = `<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-blue-600 shadow-lg"><i class="ph ph-sparkle text-white"></i></div><div class="max-w-[85%] text-sm text-gray-200 pt-1" id="${bId}-text"><span class="text-gray-400 italic" id="${bId}-thinking">${_thinkS}<span class="animate-pulse">...</span></span></div>`;
                 chatMessages.appendChild(div);
 
                 const res = await fetch('/api/chat/stream', { 
@@ -461,8 +524,8 @@
                     allModels.forEach(m => {
                         const div = document.createElement('div');
                         div.className = `px-3 py-2 text-xs rounded-lg cursor-pointer ${m.key === activeKey ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-white/10'}`;
-                        div.innerHTML = `<div class="font-medium truncate">${m.label}</div>`;
-                        div.dataset.modelName = m.label.toLowerCase();
+                        div.innerHTML = `<div class="font-medium truncate">${m.id}</div>`;
+                        div.dataset.modelName = (m.id + " " + m.label).toLowerCase();
                         div.onclick = (e) => { e.stopPropagation(); selectedModel = m; window.updateModelUI(); iMenu.classList.add('hidden'); const st = JSON.parse(localStorage.getItem('astrix_settings')||'{}'); st.modelOverride = m.key; localStorage.setItem('astrix_settings', JSON.stringify(st)); };
                         list.appendChild(div);
                     });
@@ -1042,6 +1105,234 @@ setInterval(forceAstra, 100);
 
 // Jalanin saat halaman selesai dimuat
 document.addEventListener('DOMContentLoaded', forceAstra);
+</script>
+
+
+<script>
+window.isCoderModeActive = false;
+
+function toggleCoderMode() {
+    window.isCoderModeActive = !window.isCoderModeActive;
+    const btn = document.getElementById('coderModeToggle');
+    if (window.isCoderModeActive) {
+        btn.innerHTML = '🚀 Coder Mode: ON';
+        btn.classList.replace('text-gray-400', 'text-green-400');
+        btn.classList.add('bg-green-500/20', 'border-green-500/50');
+    } else {
+        btn.innerHTML = '🧠 Coder Mode: OFF';
+        btn.classList.replace('text-green-400', 'text-gray-400');
+        btn.classList.remove('bg-green-500/20', 'border-green-500/50');
+    }
+}
+
+// Intercept API calls to /api/goal to inject coder_mode flag
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const url = args[0];
+        const options = args[1];
+        
+        if (typeof url === 'string' && url.includes('/api/goal') && options && options.body) {
+            try {
+                let body = JSON.parse(options.body);
+                body.coder_mode = isCoderModeActive;
+                options.body = JSON.stringify(body);
+            } catch(e) {}
+        }
+        return originalFetch.apply(this, args);
+    };
+});
+</script>
+
+
+    <div style="position: fixed; top: 16px; right: 16px; z-index: 9999;">
+        <button id="coderModeToggle" onclick="toggleCoderMode()" class="text-xs font-bold text-gray-400 hover:text-white px-4 py-2 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 shadow-lg transition">
+            🧠 Coder Mode: OFF
+        </button>
+    </div>
+    
+<script>
+window.renderModelMenu = async function() {
+    const menu = document.getElementById('inputModelMenu');
+    if (!menu) return;
+    menu.innerHTML = '<div class="p-3 text-xs text-gray-400 text-center">Memuat model...</div>';
+
+    // 1. Tarik data model langsung dari API (anti-gagal)
+    let models = [];
+    try {
+        const res = await fetch('/api/model');
+        const data = await res.json();
+        models = data.all || [];
+    } catch(e) {
+        menu.innerHTML = '<div class="p-3 text-xs text-red-400 text-center">Gagal memuat model. Cek server.</div>';
+        return;
+    }
+
+    if (models.length === 0) {
+        menu.innerHTML = '<div class="p-3 text-xs text-red-400 text-center">Server tidak mengirim model.</div>';
+        return;
+    }
+
+    menu.innerHTML = '';
+
+    // 2. Bikin Search Box
+    const searchWrapper = document.createElement('div');
+    searchWrapper.className = 'sticky top-0 bg-[#0d1117] p-2 z-10 border-b border-white/10 mb-1';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Cari model (contoh: openai, nemotron)...';
+    searchInput.className = 'w-full bg-[#161b22] text-xs px-3 py-2 rounded-lg border border-white/10 outline-none text-gray-200';
+    searchWrapper.appendChild(searchInput);
+    menu.appendChild(searchWrapper);
+
+    // 3. Container List
+    const listContainer = document.createElement('div');
+    listContainer.className = 'space-y-0.5 pb-2';
+    menu.appendChild(listContainer);
+
+    // 4. Fungsi Render List
+    function renderList(filterText) {
+        listContainer.innerHTML = '';
+        const filter = (filterText || '').toLowerCase();
+        const fragment = document.createDocumentFragment();
+
+        // Urutin: OpenAI di atas, lalu provider utama lainnya
+        const sorted = [...models].sort((a, b) => {
+            const aId = (a.id || '').toLowerCase();
+            const bId = (b.id || '').toLowerCase();
+            if (aId.includes('openai') && !bId.includes('openai')) return -1;
+            if (!aId.includes('openai') && bId.includes('openai')) return 1;
+            return aId.localeCompare(bId);
+        });
+
+        let count = 0;
+        sorted.forEach(m => {
+            const modelId = m.id || m.key || '';
+            // Filter search
+            if (filter && !modelId.toLowerCase().includes(filter)) return;
+            
+            // Biar gak lag parah di awal, batasi 200. Tapi kalau search, tampilin semua
+            if (!filter && count >= 200) return;
+            count++;
+
+            const div = document.createElement('div');
+            div.className = 'p-2 hover:bg-white/10 cursor-pointer text-[11px] text-gray-300 rounded-lg transition border-b border-white/5';
+            div.innerHTML = `<div class="font-bold text-blue-300">${modelId}</div>`;
+            
+            div.onclick = (e) => {
+                e.stopPropagation();
+                window.selectedModel = m;
+                // Update UI manual biar gak bergantung fungsi lain
+                const txt = m.id || m.label || "Unknown";
+                const el1 = document.getElementById('inputModelText');
+                const el2 = document.getElementById('sysModelName');
+                const el3 = document.getElementById('centerModelText');
+                if (el1) el1.textContent = txt;
+                if (el2) el2.textContent = txt;
+                if (el3) el3.textContent = txt;
+                
+                menu.classList.add('hidden');
+                const st = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+                st.modelOverride = m.id || m.key;
+                localStorage.setItem('astrix_settings', JSON.stringify(st));
+            };
+            fragment.appendChild(div);
+        });
+        listContainer.appendChild(fragment);
+    }
+
+    renderList('');
+    searchInput.addEventListener('input', (e) => renderList(e.target.value));
+    setTimeout(() => searchInput.focus(), 100);
+};
+</script>
+
+<div id="modelModal" class="fixed inset-0 z-[999] bg-black/80 backdrop-blur-md hidden flex-col items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-[#0d1117] border border-white/20 rounded-2xl shadow-2xl flex flex-col h-[80vh]">
+        <div class="p-4 border-b border-white/10 flex justify-between items-center">
+            <h2 class="text-white font-bold text-lg">Pilih Model AI</h2>
+            <button onclick="document.getElementById('modelModal').classList.add('hidden')" class="text-gray-400 hover:text-white"><i class="ph ph-x text-xl"></i></button>
+        </div>
+        <div class="p-4 border-b border-white/10">
+            <input id="modalSearch" type="text" placeholder="Cari model (contoh: openai, nemotron, deepseek)..." class="w-full bg-[#161b22] text-sm text-white px-4 py-3 rounded-xl border border-white/10 outline-none focus:border-blue-500">
+        </div>
+        <div id="modalList" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+    </div>
+</div>
+
+
+<script>
+window.openModelPicker = async function() {
+    const modal = document.getElementById('modelModal');
+    const list = document.getElementById('modalList');
+    const search = document.getElementById('modalSearch');
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    list.innerHTML = '<div class="text-center text-gray-400 text-sm mt-4">Memuat model dari server...</div>';
+    
+    try {
+        const res = await fetch('/api/model');
+        const data = await res.json();
+        const models = data.all || [];
+        
+        function render(filterText) {
+            list.innerHTML = '';
+            const filter = (filterText || '').toLowerCase();
+            const fragment = document.createDocumentFragment();
+            
+            // Urutin openai & provider utama di atas
+            const sorted = [...models].sort((a, b) => {
+                const aId = (a.id || '').toLowerCase();
+                const bId = (b.id || '').toLowerCase();
+                if (aId.includes('openai') && !bId.includes('openai')) return -1;
+                if (!aId.includes('openai') && bId.includes('openai')) return 1;
+                return aId.localeCompare(bId);
+            });
+
+            let count = 0;
+            sorted.forEach(m => {
+                const modelId = m.id || m.key || '';
+                if (filter && !modelId.toLowerCase().includes(filter)) return;
+                
+                // Tampilkan SEMUA (kalau search), batasi 500 kalau gak search biar gak lag
+                if (!filter && count >= 500) return; 
+                count++;
+
+                const div = document.createElement('div');
+                div.className = 'p-3 hover:bg-white/10 cursor-pointer text-xs text-gray-300 rounded-lg border-b border-white/5 transition';
+                div.innerHTML = `<div class="font-bold text-blue-300">${modelId}</div>`;
+                div.onclick = () => {
+                    window.selectedModel = m;
+                    const txt = m.id || m.label || "Unknown";
+                    if(document.getElementById('inputModelText')) document.getElementById('inputModelText').textContent = txt;
+                    if(document.getElementById('sysModelName')) document.getElementById('sysModelName').textContent = txt;
+                    if(document.getElementById('centerModelText')) document.getElementById('centerModelText').textContent = txt;
+                    
+                    const st = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+                    st.modelOverride = m.id || m.key;
+                    localStorage.setItem('astrix_settings', JSON.stringify(st));
+                    
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                };
+                fragment.appendChild(div);
+            });
+            list.appendChild(fragment);
+        }
+        
+        render('');
+        search.value = '';
+        search.oninput = (e) => render(e.target.value);
+        search.focus();
+        
+    } catch(e) {
+        list.innerHTML = '<div class="text-center text-red-400 text-sm mt-4">Gagal memuat model. Cek server lo.</div>';
+    }
+};
 </script>
 
 </body>

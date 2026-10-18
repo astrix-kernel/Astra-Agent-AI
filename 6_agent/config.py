@@ -44,7 +44,7 @@ import os
 from pathlib import Path
 
 LOG_FILE = Path(os.environ.get("ASTRIX_WORKSPACE", ".")) / "agent.log"
-ALLOWED_COMMANDS = {"ls", "cat", "grep", "make", "python3", "python", "git", "mkdir", "rm", "mv", "cp", "echo", "pwd", "find", "sed", "awk", "touch", "npm", "node", "gcc", "g++"}
+ALLOWED_COMMANDS = {"ls", "cat", "grep", "make", "python3", "python", "git", "mkdir", "rm", "mv", "cp", "echo", "pwd", "find", "sed", "awk", "touch", "npm", "node", "gcc", "g++", "ping", "curl", "wget", "tree", "head", "tail", "wc", "ps", "top", "df", "free", "uname", "chmod", "chown", "tar", "zip", "unzip", "xdg-open"}
 SELF_ROOT = Path(__file__).parent.parent
 SELF_EDIT_WHITELIST = ["6_agent/", "web/"]
 SELF_EDIT_BLOCK = [".env", "config.py"]
@@ -58,3 +58,8 @@ VERIFY_COMPILER = {
     ".h": ["gcc", "-fsyntax-only"],
     ".cpp": ["g++", "-fsyntax-only"]
 }
+
+# Timeout request buat planner (detik)
+REQUEST_TIMEOUT = 300
+
+REQUEST_TIMEOUT = 300

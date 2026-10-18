@@ -5,7 +5,7 @@ import os
 import subprocess
 
 def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max_tasks=5,
-                    base_url=None, api_key=None, model=None):
+                    base_url=None, api_key=None, model=None, coder_mode=False):
     """Plan → Execute → Return results. Support custom API params."""
     
     def log(msg):
@@ -32,7 +32,12 @@ GOAL: {goal}
 Return ONLY a JSON array of strings. Example:
 ["Read Makefile", "Add target foo", "Run make foo"]
 
-No explanation. No markdown. Just JSON array."""
+
+    [CRITICAL CONTEXT]
+    The user is talking about a LOCAL FOLDER (workspace), NOT a website. 
+    Do NOT plan to "open a browser", "login", or "reset password" unless the user explicitly asks to search the web.
+    If the user asks to "access" or "see" a folder, plan to use filesystem tools like list_dir, read_file, or run_command (ls).
+    No explanation. No markdown. Just JSON array."""
     
     try:
         plan_result, _ = chat_turn(
@@ -92,10 +97,30 @@ No explanation. No markdown. Just JSON array."""
 2. write_file(path, content)
 3. run_command(command)"""
     
+    
+    coder_instructions = """
+    [CODER MODE ACTIVE]
+    You are an autonomous coding agent. For EVERY task, you MUST follow this loop:
+    1. SCAN: Read the file and check for current errors.
+    2. CODE: Make the necessary changes.
+    3. VERIFY: IMMEDIATELY run a build or syntax check (e.g., make, gcc -fsyntax-only <file>, or python3 -m py_compile <file>).
+    4. FIX: If there is an error, fix it and VERIFY again.
+    DO NOT finish the task until the code successfully compiles.
+    """ if coder_mode else ""
+
     for i, task in enumerate(tasks, 1):
         log(f"⚙️ Task {i}/{len(tasks)}: {task[:60]}")
         
         exec_prompt = f"""Task {i}/{len(tasks)}: {task}
+
+    [WORKSPACE CONTEXT]
+    CRITICAL: The 'Astrix.OSdev' is a LOCAL FOLDER on the filesystem, NOT a website URL. 
+    Do NOT use browser tools to open it. 
+    Use filesystem tools like list_dir, read_file, or run_command (e.g., 'ls', 'find') to inspect its contents.
+    
+
+{coder_instructions}
+{coder_instructions}
 
 Context dari task sebelumnya:
 {chr(10).join([f'- {r[:300]}' for r in results[-2:]]) or 'Belum ada'}

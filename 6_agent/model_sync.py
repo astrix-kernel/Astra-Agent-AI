@@ -7,7 +7,7 @@ from config import LLM_URL, LLM_API_KEY, LOG_DIR
 
 CACHE_FILE = LOG_DIR / "models_cache.json"
 
-SYNC_PROVIDERS = ["nvidia", "cinf", "auto", "agy", "ds", "openrouter"]
+SYNC_PROVIDERS = ["nvidia", "cinf", "auto", "agy", "ds", "openrouter", "openai"]
 
 SKIP_KEYWORDS = [
     "embed", "rerank", "nvclip", "safety", "guard",
