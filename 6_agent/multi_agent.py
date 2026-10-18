@@ -1246,13 +1246,72 @@ DILARANG: tool+args yang SAMA dengan attempt sebelumnya."""
     {coder_instructions}
 
     Context dari task sebelumnya:
+
+[KODE YANG UDAH LU BACA - INI BUKTI NYATA]
+Signature function dari header yang udah dibaca (PAKAI PERSIS INI):
+{_signature_snapshot if '_signature_snapshot' in dir() and _signature_snapshot else '(belum ada file dibaca di task ini)'}
+
+🚨 ATURAN: Semua fungsi yang kamu panggil WAJIB dari snapshot di atas.
+Kalau butuh fungsi yang nggak ada di snapshot:
+  1. Pakai `search_text` untuk cari signature aslinya
+  2. Atau implement fungsi tersebut dulu (jangan asal panggil)
     {chr(10).join([f'- {r[:300]}' for r in results[-2:] if r]) or 'Belum ada'}
 
     {AVAILABLE_TOOLS}
 
     INSTRUKSI KERAS:
 
-    🚨 READ-BEFORE-WRITE (WAJIB):
+    🚨 EVIDENCE-BASED CODING (ANTI-HALUSINASI):
+
+Setiap baris code yang kamu tulis HARUS punya BUKTI di codebase. Sebelum nulis:
+
+1. FUNGSI YANG DIPANGGIL:
+   - ❌ JANGAN ngarang nama fungsi. Kalau panggil `foo_init()`, WAJIB ada di header.
+   - Sebelum pakai, verify: `search_text("foo_init", include="*.h")` → dapat signature-nya.
+   - Kalau nggak ketemu di header manapun → JANGAN pakai.
+
+2. #include:
+   - ❌ JANGAN include file yang belum lu verify exist.
+   - Sebelum tulis `#include "x.h"`, pakai `find_files("x.h")` → cek path-nya.
+   - Kalau nggak ada → JANGAN include. Bikin file-nya dulu, atau cari alternatif.
+
+3. TIPE / STRUCT / ENUM:
+   - ❌ JANGAN ngarang nama tipe. Kalau pakai `vtx_buffer_t`, WAJIB ada typedef di header.
+   - Verify: `search_text("vtx_buffer_t", include="*.h")` dulu.
+   - Kalau nggak ada → pakai tipe yang ADA di header, atau deklarasi dulu.
+
+4. MACRO / CONSTANT:
+   - ❌ JANGAN pakai `VTX_MAX_BUFFERS` tanpa verify ada di header.
+   - Verify: `search_text("VTX_MAX_BUFFERS")` → kalau nggak ada, jangan pakai.
+
+5. IMPLEMENTASI FUNCTION YANG ADA DI HEADER:
+   - Kalau header declare `int vtx_init(struct device* d)` → implement PERSIS:
+     - Nama: `vtx_init` (BUKAN `vtx_engine_init` atau `vtx_init_engine`)
+     - Return: `int` (BUKAN `void*` atau `bool`)
+     - Param: `struct device*` (BUKAN `void*` atau `device_t`)
+   - Baca signature dari header, copy persis.
+
+6. STYLE MATCH:
+   - Lihat 3 file existing di folder yang sama. Match gaya-nya:
+     - Naming convention (snake_case? camelCase? prefix?)
+     - Comment style (/* */ atau //?)
+     - Indentasi (tab atau spasi? 2 atau 4?)
+     - Include order (alphabetical? system-first?)
+
+7. NO PLACEHOLDER CODE:
+   - ❌ JANGAN tulis `// TODO: implement` atau `/* ... */` atau `return 0; /* stub */`
+   - Kalau kompleks, tulis implementasi minimal yang WORK, bukan stub.
+   - Kalau memang belum bisa, KATAKAN di laporan: "ini stub karena butuh X", bukan sembunyi di code.
+
+8. VERIFY BEFORE WRITE:
+   Sebelum `write_file`, jawab 3 pertanyaan ini:
+   a) "Header apa yang declare fungsi ini?" → harus ada file path
+   b) "Type apa yang aku pakai, ada di header mana?" → harus ada
+   c) "Ada include yang belum verified?" → harus "no"
+   
+   Kalau nggak bisa jawab 3 ini, JANGAN write. Cari dulu buktinya.
+
+🚨 READ-BEFORE-WRITE (WAJIB):
     Sebelum edit apa pun, jawab 3 pertanyaan:
       1. Udah baca file target? Kalau belum → `read_file` dulu
       2. Udah cek file-nya ada? Kalau belum → `find_files`/`list_dir` dulu
@@ -1277,12 +1336,22 @@ DILARANG: tool+args yang SAMA dengan attempt sebelumnya."""
     - Kode commented-out lama? → hapus
     - Duplikat definisi? → hapus salah satu
 
-    🚨 AFTER EVERY 3-5 EDITS:
-    - `run_command("make")` atau build command → verify nggak ada yang rusak
-    - Kalau build gagal → FIX BUILD dulu sebelum lanjut
+    🚨 COMPILE-AS-YOU-GO (VERIFIKASI LEBIH SERING):
+
+Setelah SETIAP 1-2 file baru/modifikasi:
+1. `run_command("make")` atau build command (cek Makefile/CMakeLists)
+2. Kalau error → FIX DULU sebelum lanjut
+3. Kalau sukses → baru lanjut file berikutnya
+
+JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
+
+🚨 SEBELUM BILANG "TASK SELESAI":
+1. `run_command("<build command>")` → harus sukses
+2. Kalau gagal → task BELUM selesai. Fix dulu.
+3. Baru setelah build hijau, boleh lapor "selesai".
 
 
-    1. JIKA TUGASNYA "Buat file" (file baru) dan file tersebut BELUM ADA, LANGSUNG pakai `write_file`. DILARANG nge-ls atau baca file yang belum ada!
+1. JIKA TUGASNYA "Buat file" (file baru) dan file tersebut BELUM ADA, LANGSUNG pakai `write_file`. DILARANG nge-ls atau baca file yang belum ada!
     2. JIKA TUGASNYA "Update file" (file sudah ada), BARU kamu wajib pakai `read_file` dulu sebelum edit.
     3. Kalau butuh ngecek error build, pakai `run_command` (misal: `make`).
     4. Kalau butuh tool, balas HANYA dengan JSON (tanpa teks lain):
