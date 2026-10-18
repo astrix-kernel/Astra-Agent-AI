@@ -1,8 +1,8 @@
 try:
     from tts_provider import get_tts_provider
     tts = get_tts_provider()
-except ImportError:
-    tts = None  # TTS optional: not installed on this machine
+except Exception:
+    tts = None  # TTS optional: broken / not installed on this machine
 
 import json as _json
 # [DISABLED] TTS removed
@@ -1921,4 +1921,112 @@ async def handle_command(req: CommandReq):
 if __name__ == "__main__":
     import uvicorn
     print("[SERVER] Starting uvicorn on http://0.0.0.0:8765", flush=True)
-    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info", ws="websockets")
+    
+
+# ============ RETENTION API ENDPOINTS (FASE 2) ============
+import sys as _sys_ret
+import os as _os_ret
+_sys_ret.path.insert(0, _os_ret.path.join(_os_ret.path.dirname(__file__), '..', '6_agent'))
+from session_db import (
+    list_sessions as _list_sessions,
+    get_session as _get_session,
+    get_active_session as _get_active,
+    get_recent_actions as _get_recent,
+    stats_get_all as _stats_all,
+    update_streak as _update_streak,
+)
+from preferences import (
+    load as _load_prefs,
+    save as _save_prefs,
+    update as _update_pref,
+    reset as _reset_prefs,
+)
+
+
+@app.get("/api/status/live")
+async def api_status_live():
+    """Live preview: status session yang sedang running."""
+    session = _get_active()
+    if not session:
+        return {"active": False}
+    return {
+        "active": True,
+        "session_id": session["id"],
+        "goal": session.get("goal", "")[:200],
+        "current_task": session.get("tasks", [None] * 100)[min(session.get("completed", 0), 99)] if session.get("tasks") else "",
+        "task_progress": {
+            "total": session.get("total_tasks", 0),
+            "completed": session.get("completed", 0),
+            "failed": session.get("failed", 0),
+        },
+        "cost": round(session.get("cost", 0.0), 4),
+        "tokens_in": session.get("tokens_in", 0),
+        "tokens_out": session.get("tokens_out", 0),
+        "recent_actions": _get_recent(session["id"], limit=15),
+    }
+
+
+@app.get("/api/sessions")
+async def api_list_sessions(limit: int = 20):
+    """List recent sessions."""
+    return {"sessions": _list_sessions(limit=limit)}
+
+
+@app.get("/api/sessions/{session_id}")
+async def api_get_session(session_id: int):
+    """Detail satu session + actions."""
+    s = _get_session(session_id)
+    if not s:
+        return {"error": "Session not found"}
+    return s
+
+
+@app.post("/api/sessions/{session_id}/resume")
+async def api_resume_session(session_id: int):
+    """Resume session — currently returns task list untuk user copy-paste."""
+    s = _get_session(session_id)
+    if not s:
+        return {"error": "Session not found"}
+    return {
+        "session_id": session_id,
+        "goal": s.get("goal", ""),
+        "tasks": s.get("tasks", []),
+        "completed": s.get("completed", 0),
+        "message": "Session loaded. Copy goal & tasks ke chat baru untuk resume."
+    }
+
+
+@app.get("/api/preferences")
+async def api_get_preferences():
+    """Get user preferences."""
+    return {"preferences": _load_prefs()}
+
+
+@app.post("/api/preferences")
+async def api_update_preferences(payload: dict):
+    """Update preferences."""
+    if not isinstance(payload, dict):
+        return {"error": "Body harus dict"}
+    new_prefs = _save_prefs(payload)
+    return {"preferences": new_prefs, "ok": True}
+
+
+@app.post("/api/preferences/reset")
+async def api_reset_preferences():
+    """Reset preferences ke default."""
+    return {"preferences": _reset_prefs(), "ok": True}
+
+
+@app.get("/api/stats")
+async def api_get_stats():
+    """Get stats + streak."""
+    stats = _stats_all()
+    streak = _update_streak()
+    return {
+        "stats": stats,
+        "streak": streak,
+    }
+
+# ============ END RETENTION API ============
+
+uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info", ws="websockets")

@@ -1673,6 +1673,347 @@ async function handleSlashCommand(text) {
 })();
 </script>
 
+
+
+<!-- ============ ASTRA LIVE PREVIEW PANEL ============ -->
+<style id="astra-live-styles">
+    #astra-live-panel {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        width: 340px;
+        max-height: 60vh;
+        background: rgba(22, 27, 34, 0.95);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        font-family: 'Inter', sans-serif;
+        font-size: 12px;
+        color: #c9d1d9;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    #astra-live-panel.hidden {
+        transform: translateX(calc(100% + 20px));
+        opacity: 0;
+        pointer-events: none;
+    }
+    #astra-live-panel.collapsed .astra-live-body {
+        display: none;
+    }
+    .astra-live-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        user-select: none;
+    }
+    .astra-live-header:hover {
+        background: rgba(59, 130, 246, 0.05);
+    }
+    .astra-live-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 13px;
+    }
+    .astra-live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #3b82f6;
+        animation: astra-pulse 1.5s ease-in-out infinite;
+    }
+    .astra-live-dot.idle {
+        background: #6b7280;
+        animation: none;
+    }
+    @keyframes astra-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.2); }
+    }
+    .astra-live-body {
+        padding: 12px 14px;
+        max-height: calc(60vh - 45px);
+        overflow-y: auto;
+    }
+    .astra-live-task {
+        font-size: 12px;
+        color: #e6edf3;
+        margin-bottom: 8px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .astra-live-progress-track {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 8px;
+    }
+    .astra-live-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        border-radius: 3px;
+        transition: width 0.5s ease;
+        width: 0%;
+    }
+    .astra-live-stats {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+        color: #8b949e;
+        margin-bottom: 10px;
+    }
+    .astra-live-stats span strong {
+        color: #c9d1d9;
+        font-weight: 600;
+    }
+    .astra-live-actions {
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding-top: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .astra-action-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 0;
+        font-size: 11px;
+        color: #8b949e;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .astra-action-item .tool {
+        color: #60a5fa;
+    }
+    .astra-action-item.new {
+        animation: astra-slide-in 0.3s ease;
+    }
+    @keyframes astra-slide-in {
+        from { opacity: 0; transform: translateX(-8px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    .astra-live-toggle {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        width: 36px;
+        height: 36px;
+        background: rgba(22, 27, 34, 0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 8px;
+        color: #60a5fa;
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9998;
+        transition: all 0.2s;
+    }
+    .astra-live-toggle:hover {
+        background: rgba(59, 130, 246, 0.1);
+    }
+    .astra-live-toggle.visible {
+        display: flex;
+    }
+</style>
+
+<button id="astra-live-toggle" class="astra-live-toggle" title="Show Live Preview">
+    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+</button>
+
+<div id="astra-live-panel" class="hidden">
+    <div class="astra-live-header" id="astra-live-header">
+        <div class="astra-live-title">
+            <span class="astra-live-dot idle" id="astra-live-dot"></span>
+            <span>LIVE PREVIEW</span>
+        </div>
+        <span id="astra-live-toggle-icon" style="color:#8b949e;font-size:14px;">−</span>
+    </div>
+    <div class="astra-live-body">
+        <div class="astra-live-task" id="astra-live-task">Idle — nunggu goal...</div>
+        <div class="astra-live-progress-track">
+            <div class="astra-live-progress-fill" id="astra-live-progress"></div>
+        </div>
+        <div class="astra-live-stats">
+            <span>📋 <strong id="astra-live-tasks">0/0</strong></span>
+            <span>⏱️ <strong id="astra-live-time">0s</strong></span>
+            <span>💰 <strong id="astra-live-cost">$0.00</strong></span>
+        </div>
+        <div class="astra-live-actions" id="astra-live-actions">
+            <div class="astra-action-item" style="color:#484f58;">(belum ada aktivitas)</div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const panel = document.getElementById('astra-live-panel');
+    const toggleBtn = document.getElementById('astra-live-toggle');
+    const header = document.getElementById('astra-live-header');
+    const toggleIcon = document.getElementById('astra-live-toggle-icon');
+    const dot = document.getElementById('astra-live-dot');
+    const taskEl = document.getElementById('astra-live-task');
+    const progressEl = document.getElementById('astra-live-progress');
+    const tasksEl = document.getElementById('astra-live-tasks');
+    const timeEl = document.getElementById('astra-live-time');
+    const costEl = document.getElementById('astra-live-cost');
+    const actionsEl = document.getElementById('astra-live-actions');
+
+    let collapsed = false;
+    let lastActionCount = 0;
+    let startTime = null;
+    let panelDismissed = false;
+
+    function fmtTime(seconds) {
+        if (seconds < 60) return Math.floor(seconds) + 's';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return m + 'm ' + s + 's';
+    }
+
+    function toggleCollapse() {
+        collapsed = !collapsed;
+        panel.classList.toggle('collapsed', collapsed);
+        toggleIcon.textContent = collapsed ? '+' : '−';
+    }
+
+    function hidePanel() {
+        panel.classList.add('hidden');
+        toggleBtn.classList.add('visible');
+        panelDismissed = true;
+    }
+
+    function showPanel() {
+        panel.classList.remove('hidden');
+        toggleBtn.classList.remove('visible');
+        panelDismissed = false;
+    }
+
+    header.addEventListener('click', function(e) {
+        if (e.target === toggleIcon) {
+            hidePanel();
+        } else {
+            toggleCollapse();
+        }
+    });
+    toggleBtn.addEventListener('click', showPanel);
+
+    async function poll() {
+        try {
+            const res = await fetch('/api/status/live');
+            const data = await res.json();
+
+            if (!data.active) {
+                if (!panel.classList.contains('hidden')) {
+                    dot.classList.add('idle');
+                    taskEl.textContent = 'Idle — nunggu goal...';
+                    progressEl.style.width = '0%';
+                }
+                toggleBtn.classList.add('visible');
+                return;
+            }
+
+            // Aktif — show panel (kecuali user dismiss)
+            if (!panelDismissed) {
+                panel.classList.remove('hidden');
+                toggleBtn.classList.remove('visible');
+            }
+
+            dot.classList.remove('idle');
+
+            // Task
+            const total = data.task_progress.total || 0;
+            const done = data.task_progress.completed || 0;
+            const failed = data.task_progress.failed || 0;
+            const currentNum = done + failed + 1;
+            const currentTask = data.current_task || 'Working...';
+
+            if (currentNum <= total) {
+                taskEl.textContent = `Task ${currentNum}/${total}: ${currentTask.slice(0, 50)}`;
+            } else {
+                taskEl.textContent = `✅ Selesai: ${done} sukses, ${failed} gagal`;
+            }
+
+            // Progress
+            const pct = total > 0 ? Math.min(100, Math.round((done + failed) / total * 100)) : 0;
+            progressEl.style.width = pct + '%';
+
+            // Stats
+            tasksEl.textContent = `${done}/${total}`;
+            if (!startTime && total > 0) startTime = Date.now();
+            if (startTime) {
+                timeEl.textContent = fmtTime((Date.now() - startTime) / 1000);
+            }
+            costEl.textContent = '$' + (data.cost || 0).toFixed(4);
+
+            // Actions
+            const actions = data.recent_actions || [];
+            if (actions.length === 0) {
+                actionsEl.innerHTML = '<div class="astra-action-item" style="color:#484f58;">(belum ada aktivitas)</div>';
+            } else {
+                const icons = {
+                    'read_file': '📖',
+                    'read_lines': '📖',
+                    'write_file': '✏️',
+                    'create_file': '➕',
+                    'multi_write': '➕',
+                    'multi_edit': '✏️',
+                    'replace_text': '🔄',
+                    'search_text': '🔍',
+                    'find_files': '🔍',
+                    'run_command': '⚙️',
+                    'list_dir': '📂',
+                    'delete_file': '🗑️',
+                    'git_status': '📊',
+                    'git_diff': '📊',
+                };
+                const html = actions.slice(-8).map((a, i) => {
+                    const isNew = i >= actions.slice(-8).length - 1 && actions.length > lastActionCount;
+                    const icon = icons[a.tool] || '🔧';
+                    let detail = '';
+                    try {
+                        const args = JSON.parse(a.args_json || '{}');
+                        detail = args.path || args.command || args.pattern || '';
+                        if (detail.length > 30) detail = detail.slice(0, 30) + '...';
+                    } catch(e) {}
+                    return `<div class="astra-action-item ${isNew ? 'new' : ''}">
+                        <span>${icon}</span>
+                        <span class="tool">${a.tool}</span>
+                        <span style="color:#6e7681;">${detail}</span>
+                    </div>`;
+                }).join('');
+                actionsEl.innerHTML = html;
+                actionsEl.scrollTop = actionsEl.scrollHeight;
+            }
+            lastActionCount = actions.length;
+
+        } catch (e) {
+            // Silent fail — server mungkin restart
+        }
+    }
+
+    // Poll tiap 2 detik
+    setInterval(poll, 2000);
+    poll();
+})();
+</script>
+<!-- ============ END ASTRA LIVE PREVIEW ============ -->
+
 </body>
 
 </html>

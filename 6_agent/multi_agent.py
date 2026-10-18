@@ -1277,6 +1277,18 @@ If a task or command fails, DO NOT give up.
         tasks = [goal]
     else:
         log(f"✅ Plan ready: {len(tasks)} tasks")
+    # === ASTRIX PATCH: session DB hook ===
+    try:
+        from session_db import create_session as _sdb_create, update_session as _sdb_update, log_action as _sdb_log
+        from config import WORKSPACE as _sdb_ws
+        import json as _sdb_json, time as _sdb_time
+        _sdb_session_id = _sdb_create(goal, str(_sdb_ws))
+        _sdb_update(_sdb_session_id, total_tasks=len(tasks), tasks_json=_sdb_json.dumps(tasks, ensure_ascii=False)[:20000])
+        log(f"💾 Session #{_sdb_session_id} started — live preview aktif")
+    except Exception as _sdb_e:
+        _sdb_session_id = None
+        log(f"⚠️ Session DB skip: {_sdb_e}")
+    # === END PATCH ===
     if status_callback: status_callback("plan", f"📋 Rencana: {len(tasks)} langkah")
     
     for i, t in enumerate(tasks, 1):
@@ -1639,6 +1651,14 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
                                             results.append(f"OK: {_m.group(1)} already exists")
                                             continue
                             tool_result = TOOLS[tool_name](**tool_args)
+                        # === ASTRIX PATCH: log to session DB ===
+                        try:
+                            if '_sdb_session_id' in dir() and _sdb_session_id:
+                                from session_db import log_action as _sdb_log2
+                                _sdb_log2(_sdb_session_id, i, tool_name, tool_args, str(tool_result)[:300])
+                        except Exception:
+                            pass
+                        # === END PATCH ===
                             log(f"✅ Tool {tool_name} berhasil: {str(tool_result)[:100]}")
                             if status_callback: status_callback("done_tool", f"✅ {tool_name}")
                         
@@ -1672,6 +1692,16 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
                             if not (_result_str.startswith("ERROR") or _result_str.startswith("❌") or _result_str.startswith("FAILED")):
                                 task_done = True
                                 log(f"   ✅ Task {i} selesai (sukses)")
+                                # === ASTRIX PATCH: update progress ===
+                                try:
+                                    if '_sdb_session_id' in dir() and _sdb_session_id:
+                                        from session_db import update_session as _sdb_upd
+                                        _sdb_done = sum(1 for r in results if r and not str(r).startswith(('FAILED', '❌')))
+                                        _sdb_fail = sum(1 for r in results if r and str(r).startswith('FAILED'))
+                                        _sdb_upd(_sdb_session_id, completed=_sdb_done, failed=_sdb_fail)
+                                except Exception:
+                                    pass
+                                # === END PATCH ===
                                 break
                             else:
                                 log(f"   ⚠️ Tool returned error, akan retry")
@@ -1728,6 +1758,23 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
         log(f"   - Files: {', '.join(created_files[:10])}")
         if len(created_files) > 10:
             log(f"   - ... and {len(created_files) - 10} more")
+    
+    # === ASTRIX PATCH: finalize session ===
+    try:
+        if '_sdb_session_id' in dir() and _sdb_session_id:
+            from session_db import update_session as _sdb_fin, stats_increment as _sdb_inc
+            import time as _sdb_time2, json as _sdb_json2
+            _sdb_c = sum(1 for r in results if r and not str(r).startswith(('FAILED', '❌')))
+            _sdb_f = sum(1 for r in results if r and str(r).startswith('FAILED'))
+            _sdb_fin(_sdb_session_id, status='completed', finished_at=_sdb_time2.time(),
+                     completed=_sdb_c, failed=_sdb_f,
+                     results_json=_sdb_json2.dumps(results, ensure_ascii=False, default=str)[:20000])
+            _sdb_inc('total_tasks_completed', _sdb_c)
+            _sdb_inc('total_tasks_failed', _sdb_f)
+            log(f"💾 Session #{_sdb_session_id} finalized: {_sdb_c} sukses, {_sdb_f} gagal")
+    except Exception as _sdb_e2:
+        log(f"⚠️ Session finalize skip: {_sdb_e2}")
+    # === END PATCH ===
     
     return {
         "goal": goal, 
