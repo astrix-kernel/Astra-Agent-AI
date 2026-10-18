@@ -93,5 +93,5 @@ REQUEST_TIMEOUT = 300
 
 # === Agent Task Limits ===
 MAX_TASKS_DEFAULT = 40  # safety cap, AI decides actual count
-MAX_RETRIES_PER_TASK = 3      # retry per task
+MAX_RETRIES_PER_TASK = 6  # beneran retry 6x dengan reflection
 MAX_TOTAL_ATTEMPTS = None  # auto: max_tasks * 3

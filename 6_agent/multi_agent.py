@@ -1206,225 +1206,261 @@ If a task or command fails, DO NOT give up.
                 log(f"  🔄 Retry {task_attempts}/{max_retries_per_task} (total attempt: {total_attempts}/{effective_max_attempts})")
 
         
-        exec_prompt = f"""Task {i}/{len(tasks)}: {task}
 
-    [WORKSPACE CONTEXT - READ CAREFULLY]
-    - You are ALREADY INSIDE the workspace folder `{workspace_name}`.
-    - Current working directory (cwd) for ALL commands = `{workspace_name}`.
-    - DO NOT prefix paths with `{workspace_name}/` - that will fail.
-    - Use RELATIVE paths (e.g., `ls .`, `ls kernel/`, `cat main.c`).
-    - Example BENAR: `ls -la .` atau `find . -name "*.c"`
-    - Example SALAH: `ls -la {workspace_name}` atau `ls -la SomeProject/`
-    - This is a LOCAL FOLDER on filesystem, NOT a website URL. Do NOT use browser tools.
+            # === ASTRIX PATCH: Reflection after failure ===
+            if task_attempts > 1:
+                _prev_errors = []
+                for _h in history[-8:]:
+                    if _h.get("role") == "user" and ("ERROR" in str(_h.get("content", "")) or "❌" in str(_h.get("content", ""))):
+                        _prev_errors.append(str(_h.get("content", ""))[:150])
+                
+                if _prev_errors:
+                    _reflection = f"""⚠️ ATTEMPT {task_attempts} FAILED. JANGAN ULANGI CARA YANG SAMA.
+
+Error sebelumnya:
+{chr(10).join("  - " + e for e in _prev_errors[-2:])}
+
+WAJIB coba approach BEDA:
+1. Kenapa gagal? (root cause, bukan gejala)
+2. Apa 3 alternatif? (tool beda / path beda / pecah kecil)
+3. Pilih yang BELUM dicoba. Eksekusi.
+
+DILARANG: tool+args yang SAMA dengan attempt sebelumnya."""
+                    history.append({"role": "user", "content": _reflection})
+                    log(f"   🧠 Reflection injected (attempt {task_attempts})")
+            # === END PATCH ===
+
+            exec_prompt = f"""Task {i}/{len(tasks)}: {task}
+
+        [WORKSPACE CONTEXT - READ CAREFULLY]
+        - You are ALREADY INSIDE the workspace folder `{workspace_name}`.
+        - Current working directory (cwd) for ALL commands = `{workspace_name}`.
+        - DO NOT prefix paths with `{workspace_name}/` - that will fail.
+        - Use RELATIVE paths (e.g., `ls .`, `ls kernel/`, `cat main.c`).
+        - Example BENAR: `ls -la .` atau `find . -name "*.c"`
+        - Example SALAH: `ls -la {workspace_name}` atau `ls -la SomeProject/`
+        - This is a LOCAL FOLDER on filesystem, NOT a website URL. Do NOT use browser tools.
     
 
-{coder_instructions}
-{coder_instructions}
+    {coder_instructions}
+    {coder_instructions}
 
-Context dari task sebelumnya:
-{chr(10).join([f'- {r[:300]}' for r in results[-2:] if r]) or 'Belum ada'}
+    Context dari task sebelumnya:
+    {chr(10).join([f'- {r[:300]}' for r in results[-2:] if r]) or 'Belum ada'}
 
-{AVAILABLE_TOOLS}
+    {AVAILABLE_TOOLS}
 
-INSTRUKSI KERAS:
+    INSTRUKSI KERAS:
 
-🚨 READ-BEFORE-WRITE (WAJIB):
-Sebelum edit apa pun, jawab 3 pertanyaan:
-  1. Udah baca file target? Kalau belum → `read_file` dulu
-  2. Udah cek file-nya ada? Kalau belum → `find_files`/`list_dir` dulu
-  3. Udah tau include/import yang dibutuhin? Kalau belum → `search_text` dulu
+    🚨 READ-BEFORE-WRITE (WAJIB):
+    Sebelum edit apa pun, jawab 3 pertanyaan:
+      1. Udah baca file target? Kalau belum → `read_file` dulu
+      2. Udah cek file-nya ada? Kalau belum → `find_files`/`list_dir` dulu
+      3. Udah tau include/import yang dibutuhin? Kalau belum → `search_text` dulu
 
-🚨 READINESS SIGNAL (kapan BERHENTI baca, MULAI nulis):
-✅ Udah baca ≥3 file terkait → cukup konteks
-✅ Udah bisa list fungsi/class yang ada → cukup konteks
-✅ Udah tau file mana yang harus diedit → cukup konteks
-→ SAAT INI, STOP baca. LANGSUNG pake `write_file`/`multi_write`/`replace_text`.
+    🚨 READINESS SIGNAL (kapan BERHENTI baca, MULAI nulis):
+    ✅ Udah baca ≥3 file terkait → cukup konteks
+    ✅ Udah bisa list fungsi/class yang ada → cukup konteks
+    ✅ Udah tau file mana yang harus diedit → cukup konteks
+    → SAAT INI, STOP baca. LANGSUNG pake `write_file`/`multi_write`/`replace_text`.
 
-Kalau udah 3 file dibaca tapi masih nanya-nanya → lu OVERTHINKING. Mulai aksi.
+    Kalau udah 3 file dibaca tapi masih nanya-nanya → lu OVERTHINKING. Mulai aksi.
 
-🚨 ACTION BATCHING (irit token):
-- Bikin 2+ file terkait? → `multi_write` (bukan `write_file` × N)
-- Edit 3+ spot serupa? → loop `replace_text` (bukan rewrite file penuh)
-- Hapus blok kode? → `delete_lines` dengan range exact
+    🚨 ACTION BATCHING (irit token):
+    - Bikin 2+ file terkait? → `multi_write` (bukan `write_file` × N)
+    - Edit 3+ spot serupa? → loop `replace_text` (bukan rewrite file penuh)
+    - Hapus blok kode? → `delete_lines` dengan range exact
 
-🚨 DELETE CODE (kalau perlu bersihin):
-- Fungsi nggak dipanggil? → `search_text` dulu (kalau 0 caller = aman hapus)
-- Include/import nggak kepake? → hapus
-- Kode commented-out lama? → hapus
-- Duplikat definisi? → hapus salah satu
+    🚨 DELETE CODE (kalau perlu bersihin):
+    - Fungsi nggak dipanggil? → `search_text` dulu (kalau 0 caller = aman hapus)
+    - Include/import nggak kepake? → hapus
+    - Kode commented-out lama? → hapus
+    - Duplikat definisi? → hapus salah satu
 
-🚨 AFTER EVERY 3-5 EDITS:
-- `run_command("make")` atau build command → verify nggak ada yang rusak
-- Kalau build gagal → FIX BUILD dulu sebelum lanjut
+    🚨 AFTER EVERY 3-5 EDITS:
+    - `run_command("make")` atau build command → verify nggak ada yang rusak
+    - Kalau build gagal → FIX BUILD dulu sebelum lanjut
 
 
-1. JIKA TUGASNYA "Buat file" (file baru) dan file tersebut BELUM ADA, LANGSUNG pakai `write_file`. DILARANG nge-ls atau baca file yang belum ada!
-2. JIKA TUGASNYA "Update file" (file sudah ada), BARU kamu wajib pakai `read_file` dulu sebelum edit.
-3. Kalau butuh ngecek error build, pakai `run_command` (misal: `make`).
-4. Kalau butuh tool, balas HANYA dengan JSON (tanpa teks lain):
-   {{"tool": "write_file", "args": {{"path": "main.c", "content": "..."}}}}
-   {{"tool": "run_command", "args": {{"command": "make -j4"}}}}
+    1. JIKA TUGASNYA "Buat file" (file baru) dan file tersebut BELUM ADA, LANGSUNG pakai `write_file`. DILARANG nge-ls atau baca file yang belum ada!
+    2. JIKA TUGASNYA "Update file" (file sudah ada), BARU kamu wajib pakai `read_file` dulu sebelum edit.
+    3. Kalau butuh ngecek error build, pakai `run_command` (misal: `make`).
+    4. Kalau butuh tool, balas HANYA dengan JSON (tanpa teks lain):
+       {{"tool": "write_file", "args": {{"path": "main.c", "content": "..."}}}}
+       {{"tool": "run_command", "args": {{"command": "make -j4"}}}}
 
-2. Kalau udah selesai / nggak butuh tool lagi, balas dengan LAPORAN NATURAL:
-   - APA yang kamu temukan (kalau abis baca file)
-   - APA yang kamu ubah (kalau abis edit)
-   - HASIL (kalau abis run command)
-   - Bahasa manusia, bukan "OK" doang.
-   - Pakai bahasa user (Indonesia kalau user Indonesia).
+    2. Kalau udah selesai / nggak butuh tool lagi, balas dengan LAPORAN NATURAL:
+       - APA yang kamu temukan (kalau abis baca file)
+       - APA yang kamu ubah (kalau abis edit)
+       - HASIL (kalau abis run command)
+       - Bahasa manusia, bukan "OK" doang.
+       - Pakai bahasa user (Indonesia kalau user Indonesia).
    
-   Contoh laporan bagus:
-   - "Aku udah cek `mymod_core.c`. Ada 3 function: init, render, cleanup. Semua ada warning unused variable."
-   - "Aku udah tambahin `mymod_glob.c` dengan fungsi `mymod_glob_init()`. Coba `make`."
-   - "Waduh, `make` gagal di baris 42: missing semicolon. Aku fix dulu..."
-   - "Beres! Build sukses. Binary ada di `build/myapp`."
-"""
+       Contoh laporan bagus:
+       - "Aku udah cek `mymod_core.c`. Ada 3 function: init, render, cleanup. Semua ada warning unused variable."
+       - "Aku udah tambahin `mymod_glob.c` dengan fungsi `mymod_glob_init()`. Coba `make`."
+       - "Waduh, `make` gagal di baris 42: missing semicolon. Aku fix dulu..."
+       - "Beres! Build sukses. Binary ada di `build/myapp`."
+    """
 
-        try:
-            result, _ = chat_turn(
-                history, exec_prompt,
-                system_prompt="""You are a precise executor. Complete tasks with clear concise output.
+            try:
+                result, _ = chat_turn(
+                    history, exec_prompt,
+                    system_prompt="""You are a precise executor. Complete tasks with clear concise output.
 
-[CASCADING PROTOCOL - MANDATORY]
-If a task or command fails, DO NOT give up. 
-1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
-2. If 'read_file' fails, use 'cat' or 'head'.
-3. Break down complex tasks into smaller sub-tasks.
-4. Analyze the error, adapt, and retry until you succeed.
-""",
+    [CASCADING PROTOCOL - MANDATORY]
+    If a task or command fails, DO NOT give up. 
+    1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
+    2. If 'read_file' fails, use 'cat' or 'head'.
+    3. Break down complex tasks into smaller sub-tasks.
+    4. Analyze the error, adapt, and retry until you succeed.
+    """,
 
-                temperature=0.3, max_tokens=16000,
-                **base_kwargs
-            )
+                    temperature=0.3, max_tokens=16000,
+                    **base_kwargs
+                )
             
-            if not result:
-                log(f"⚠️ Attempt {task_attempts}: AI return empty")
-                if task_attempts >= max_retries_per_task:
-                    log(f"  ❌ Task failed after {task_attempts} attempts")
-                    results.append(f"FAILED: {task[:80]}")
-                continue
-            result_clean = result.strip()
-            result_clean = re.sub(r'^```(?:json)?\n', '', result_clean)
-            result_clean = re.sub(r'\n```$', '', result_clean)
+                if not result:
+                    log(f"⚠️ Attempt {task_attempts}: AI return empty")
+                    if task_attempts >= max_retries_per_task:
+                        log(f"  ❌ Task failed after {task_attempts} attempts")
+                        results.append(f"FAILED: {task[:80]}")
+                    continue
+                result_clean = result.strip()
+                result_clean = re.sub(r'^```(?:json)?\n', '', result_clean)
+                result_clean = re.sub(r'\n```$', '', result_clean)
             
-            tool_call = _extract_first_json(result_clean)
+                tool_call = _extract_first_json(result_clean)
             
-            # Kalau JSON gagal di attempt > 1, paksa model pake format ketat
-            if not tool_call and task_attempts > 1:
-                log(f"⚠️ Attempt {task_attempts}: JSON invalid, forcing strict format...")
-                try:
-                    from chat import chat_turn as _ct
-                except ImportError:
-                    _ct = None
-                strict_prompt = f"""TASK: {task}
-
-RESPOND WITH ONLY ONE JSON OBJECT, NOTHING ELSE. No explanation, no markdown.
-
-{{"tool": "write_file", "args": {{"path": "file.ext", "content": "..."}}}}
-OR
-{{"tool": "run_command", "args": {{"command": "mkdir -p dir"}}}}
-
-Your answer:"""
-                if _ct:
+                # Kalau JSON gagal di attempt > 1, paksa model pake format ketat
+                if not tool_call and task_attempts > 1:
+                    log(f"⚠️ Attempt {task_attempts}: JSON invalid, forcing strict format...")
                     try:
-                        retry_result, _ = _ct(history, strict_prompt, **base_kwargs)
-                        if retry_result:
-                            tool_call = _extract_first_json(retry_result.strip())
-                            if tool_call:
-                                log(f"✅ Retry success: {tool_call.get('tool')}")
-                    except Exception as _e:
-                        log(f"Retry error: {_e}")
+                        from chat import chat_turn as _ct
+                    except ImportError:
+                        _ct = None
+                    strict_prompt = f"""TASK: {task}
+
+    RESPOND WITH ONLY ONE JSON OBJECT, NOTHING ELSE. No explanation, no markdown.
+
+    {{"tool": "write_file", "args": {{"path": "file.ext", "content": "..."}}}}
+    OR
+    {{"tool": "run_command", "args": {{"command": "mkdir -p dir"}}}}
+
+    Your answer:"""
+                    if _ct:
+                        try:
+                            retry_result, _ = _ct(history, strict_prompt, **base_kwargs)
+                            if retry_result:
+                                tool_call = _extract_first_json(retry_result.strip())
+                                if tool_call:
+                                    log(f"✅ Retry success: {tool_call.get('tool')}")
+                        except Exception as _e:
+                            log(f"Retry error: {_e}")
             
-            if tool_call:
-                try:
-                    tool_name = tool_call.get("tool")
-                    tool_args = tool_call.get("args", {})
+                if tool_call:
+                    try:
+                        tool_name = tool_call.get("tool")
+                        tool_args = tool_call.get("args", {})
                     
-                    log(f"🛠️ AI memanggil tool: {tool_name}")
+                        log(f"🛠️ AI memanggil tool: {tool_name}")
                     
-                    # Smart override: DISABLED (Membuat AI alergi ngecek dan halusinasi)
-                    # _new_tool, _new_args = _smart_override(tool_name, tool_args, task)
-                    pass
+                        # Smart override: DISABLED (Membuat AI alergi ngecek dan halusinasi)
+                        # _new_tool, _new_args = _smart_override(tool_name, tool_args, task)
+                        pass
 
-                    # Ensure real content for write_file
-                    if tool_name == "write_file" and isinstance(tool_args, dict):
-                        _before = tool_args.get("content", "")[:80]
-                        tool_name, tool_args = _ensure_real_content(tool_name, tool_args, task, chat_turn, base_kwargs)
-                        _after = tool_args.get("content", "")[:80] if isinstance(tool_args, dict) else ""
-                        if _before != _after:
-                            log("Content regenerated by LLM (" + str(len(tool_args.get("content", ""))) + " bytes)")
-                    if status_callback:
-                        if tool_name == "write_file":
-                            _path = tool_args.get("path", "?")
-                            status_callback("add", f"➕ Ditambahkan {_path}")
-                        elif tool_name == "read_file":
-                            _path = tool_args.get("path", "?")
-                            status_callback("read", f"📖 Baca {_path}")
-                        elif tool_name == "run_command":
-                            _cmd = tool_args.get("command", "")
-                            if "make" in _cmd.lower():
-                                status_callback("run", f"⚙️ Makefile")
+                        # Ensure real content for write_file
+                        if tool_name == "write_file" and isinstance(tool_args, dict):
+                            _before = tool_args.get("content", "")[:80]
+                            tool_name, tool_args = _ensure_real_content(tool_name, tool_args, task, chat_turn, base_kwargs)
+                            _after = tool_args.get("content", "")[:80] if isinstance(tool_args, dict) else ""
+                            if _before != _after:
+                                log("Content regenerated by LLM (" + str(len(tool_args.get("content", ""))) + " bytes)")
+                        if status_callback:
+                            if tool_name == "write_file":
+                                _path = tool_args.get("path", "?")
+                                status_callback("add", f"➕ Ditambahkan {_path}")
+                            elif tool_name == "read_file":
+                                _path = tool_args.get("path", "?")
+                                status_callback("read", f"📖 Baca {_path}")
+                            elif tool_name == "run_command":
+                                _cmd = tool_args.get("command", "")
+                                if "make" in _cmd.lower():
+                                    status_callback("run", f"⚙️ Makefile")
+                                else:
+                                    status_callback("run", f"▶️ {_cmd[:60]}")
+                            elif tool_name == "list_dir":
+                                status_callback("list", f"📂 List folder")
                             else:
-                                status_callback("run", f"▶️ {_cmd[:60]}")
-                        elif tool_name == "list_dir":
-                            status_callback("list", f"📂 List folder")
+                                status_callback("tool", f"🔧 {tool_name}")
+                    
+                        from tools import TOOLS
+                    
+                        if tool_name in TOOLS:
+                            # Skip if directory already exists
+                            if tool_name == "run_command" and isinstance(tool_args, dict):
+                                _cmd = str(tool_args.get("command", ""))
+                                if _cmd.startswith("mkdir"):
+                                    import re as _re_skip
+                                    _m = _re_skip.search(r"mkdir\s+-p\s+([a-zA-Z0-9_./-]+)", _cmd)
+                                    if _m:
+                                        from pathlib import Path as _P
+                                        from config import WORKSPACE as _WS
+                                        _tgt = _P(_WS) / _m.group(1)
+                                        if _tgt.is_dir():
+                                            log(f"⏭️ Skip: {_m.group(1)} already exists")
+                                            results.append(f"OK: {_m.group(1)} already exists")
+                                            continue
+                            tool_result = TOOLS[tool_name](**tool_args)
+                            log(f"✅ Tool {tool_name} berhasil: {str(tool_result)[:100]}")
+                            if status_callback: status_callback("done_tool", f"✅ {tool_name}")
+                        
+                            history.append({"role": "user", "content": exec_prompt})
+                            history.append({"role": "assistant", "content": result})
+                            history.append({"role": "user", "content": f"Hasil dari {tool_name}: {tool_result}"})
+                            # Batasi history maksimal 6 pesan terakhir agar LLM tidak bingung (JSON invalid)
+                            if len(history) > 6:
+                                history = history[-6:]
+                        
+                            final_result, _ = chat_turn(
+                    history, exec_prompt,
+                    system_prompt="""You are a precise executor. Complete tasks with clear concise output.
+
+    [CASCADING PROTOCOL - MANDATORY]
+    If a task or command fails, DO NOT give up. 
+    1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
+    2. If 'read_file' fails, use 'cat' or 'head'.
+    3. Break down complex tasks into smaller sub-tasks.
+    4. Analyze the error, adapt, and retry until you succeed.
+    """,
+
+                                temperature=0.3, max_tokens=2048,
+                                **base_kwargs
+                            )
+                            results.append(final_result)
+                            
+                            # === ASTRIX PATCH: task_done logic ===
+                            # Kalau tool_result sukses (bukan ERROR/FAILED), task selesai
+                            _result_str = str(tool_result)[:50]
+                            if not (_result_str.startswith("ERROR") or _result_str.startswith("❌") or _result_str.startswith("FAILED")):
+                                task_done = True
+                                log(f"   ✅ Task {i} selesai (sukses)")
+                                break
+                            else:
+                                log(f"   ⚠️ Tool returned error, akan retry")
+                                # tidak break — while akan retry
+                            # === END PATCH ===
                         else:
-                            status_callback("tool", f"🔧 {tool_name}")
-                    
-                    from tools import TOOLS
-                    
-                    if tool_name in TOOLS:
-                        # Skip if directory already exists
-                        if tool_name == "run_command" and isinstance(tool_args, dict):
-                            _cmd = str(tool_args.get("command", ""))
-                            if _cmd.startswith("mkdir"):
-                                import re as _re_skip
-                                _m = _re_skip.search(r"mkdir\s+-p\s+([a-zA-Z0-9_./-]+)", _cmd)
-                                if _m:
-                                    from pathlib import Path as _P
-                                    from config import WORKSPACE as _WS
-                                    _tgt = _P(_WS) / _m.group(1)
-                                    if _tgt.is_dir():
-                                        log(f"⏭️ Skip: {_m.group(1)} already exists")
-                                        results.append(f"OK: {_m.group(1)} already exists")
-                                        continue
-                        tool_result = TOOLS[tool_name](**tool_args)
-                        log(f"✅ Tool {tool_name} berhasil: {str(tool_result)[:100]}")
-                        if status_callback: status_callback("done_tool", f"✅ {tool_name}")
-                        
-                        history.append({"role": "user", "content": exec_prompt})
-                        history.append({"role": "assistant", "content": result})
-                        history.append({"role": "user", "content": f"Hasil dari {tool_name}: {tool_result}"})
-                        # Batasi history maksimal 6 pesan terakhir agar LLM tidak bingung (JSON invalid)
-                        if len(history) > 6:
-                            history = history[-6:]
-                        
-                        final_result, _ = chat_turn(
-                history, exec_prompt,
-                system_prompt="""You are a precise executor. Complete tasks with clear concise output.
-
-[CASCADING PROTOCOL - MANDATORY]
-If a task or command fails, DO NOT give up. 
-1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
-2. If 'read_file' fails, use 'cat' or 'head'.
-3. Break down complex tasks into smaller sub-tasks.
-4. Analyze the error, adapt, and retry until you succeed.
-""",
-
-                            temperature=0.3, max_tokens=2048,
-                            **base_kwargs
-                        )
-                        results.append(final_result)
-                    else:
-                        results.append(f"❌ Tool {tool_name} tidak dikenal.")
-                except Exception as e:
-                    log(f"❌ Gagal parsing JSON tool call: {e}")
+                            results.append(f"❌ Tool {tool_name} tidak dikenal.")
+                    except Exception as e:
+                        log(f"❌ Gagal parsing JSON tool call: {e}")
+                        results.append(result)
+                else:
                     results.append(result)
-            else:
-                results.append(result)
                 
-        except Exception as e:
-            results.append(f"❌ Error: {e}")
-            log(f"❌ Task {i} error: {e}")
+            except Exception as e:
+                results.append(f"❌ Error: {e}")
+                log(f"❌ Task {i} error: {e}")
     
     log(f"🎉 Complete: {len(results)}/{len(tasks)} tasks")
     # Sanitize results: remove leaked JSON tool calls
