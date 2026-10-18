@@ -12,15 +12,15 @@ Astra runs its application server on your own machine. You choose the language-m
 
 ## Contents
 
-- [Why Astra?](#-why-astro)
+- [Why Astra?](#-why-astra)
 - [Key Features](#-key-features)
-- [How Astra Works](#-how-astro-works)
+- [How Astra Works](#-how-astra-works)
 - [Architecture Overview](#-architecture-overview)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
-- [Running Astra](#-running-astro)
-- [Using Astra](#-using-astro)
+- [Running Astra](#-running-astra)
+- [Using Astra](#-using-astra)
 - [Example Prompts](#-example-prompts)
 - [Browser Automation](#-browser-automation)
 - [Workspace and File Access](#-workspace-and-file-access)
@@ -188,8 +188,8 @@ These steps describe the repository's current basic startup flow. Commands may n
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/astrix-kernel/astro-agent.git
-cd astro-agent
+git clone https://github.com/astrix-kernel/astra-agent.git
+cd astra-agent
 ```
 
 ### 2. Create a Python virtual environment
@@ -300,7 +300,7 @@ The configured workspace is a starting point, not a substitute for checking the 
 After setup, the normal startup sequence is:
 
 ```bash
-cd astro-agent
+cd astra-agent
 source .venv/bin/activate
 python3 web/server.py
 ```
@@ -357,7 +357,7 @@ Open https://example.com and click the link labeled "More information" if it is 
 ### Create a text file
 
 ```text
-Create /tmp/astro-notes.txt with the following content:
+Create /tmp/astra-notes.txt with the following content:
 Hello from Astra AI Agent.
 Then tell me the path of the file you created.
 ```
@@ -569,7 +569,7 @@ Your checkout may contain additional files or a slightly different layout as dev
 Some Linux distributions prevent `pip` from installing packages directly into the operating system's managed Python environment. Use a virtual environment instead of forcing installation into system Python:
 
 ```bash
-cd astro-agent
+cd astra-agent
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -683,7 +683,7 @@ Before opening a pull request:
 
 For bug reports, include your operating system, Python version, the configured endpoint type (without credentials), and the relevant terminal output. Remove tokens, private URLs, and personal information before sharing logs.
 
-Repository: <https://github.com/astrix-kernel/astro-agent>
+Repository: <https://github.com/astrix-kernel/astra-agent>
 
 ---
 
