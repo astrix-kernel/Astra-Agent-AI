@@ -83,3 +83,10 @@ tmp_*
 6_agent/catatan/
 *.txt
 !requirements.txt
+xtts-env/
+xtts_models/
+speakers/
+web/tts_provider.py
+6_agent/tts_provider.py
+web/kura_tts.py
+web/tts_api.py
