@@ -2,7 +2,6 @@
 
 import json, re, time
 from config import REQUEST_TIMEOUT, MAX_TOKENS_PER_RESPONSE
-from tools import TOOLS
 from reasoning import get_reasoning_addon
 from long_memory import build_memory_block
 from error_learning import record as record_error, build_hints_block
@@ -13,6 +12,12 @@ from context import build_context_block, get_project_tree
 from knowledge import build_knowledge_block, update_file_map
 from reflection import reflect
 from llm import call_llm as _call_llm
+
+
+def _get_tools():
+    from tools import TOOLS
+    return TOOLS
+
 
 
 EXECUTOR_PROMPT = """Kamu adalah **Executor** untuk Astra Agent — project workspace.
@@ -77,7 +82,7 @@ Untuk menyimpan insight penting ke memory:
   {"remember": "catatan penting yang berguna untuk task selanjutnya"}
 
 
-**JANGAN baca file yang sama 2x.** Kalau udah baca `vtx_engine_core.c`, JANGAN baca lagi — udah tau isinya.
+**JANGAN baca file yang sama 2x.** Kalau udah baca `myapp_core.c`, JANGAN baca lagi — udah tau isinya.
 
 Kalau nemu diri lo baca file yang sama berulang, itu tanda lo STUCK. Aksi yang bener:
 - Kalau task butuh edit file → LANGSUNG `replace_text` / `create_file`
@@ -112,33 +117,33 @@ Kalau nemu diri lo baca file yang sama berulang, itu tanda lo STUCK. Aksi yang b
 
 
 **Bikin file .c baru:**
-{"tool": "create_file", "args": {"path": "kernel/vtx_engine/vtx_memory.c", "content": "#include \"vtx_memory.h\"\n\nvoid* vtx_alloc(size_t size) {\n    return kmalloc(size);\n}\n"}}
+{"tool": "create_file", "args": {"path": "src/mymod/mymod_memory.c", "content": "#include \"mymod_memory.h\"\n\nvoid* mymod_alloc(size_t size) {\n    return kmalloc(size);\n}\n"}}
 
 **Nambah fungsi ke file existing:**
-{"tool": "append_to_file", "args": {"path": "kernel/vtx_engine/vtx_memory.c", "content": "\nvoid vtx_free(void* ptr) {\n    kfree(ptr);\n}\n"}}
+{"tool": "append_to_file", "args": {"path": "src/mymod/mymod_memory.c", "content": "\nvoid mymod_free(void* ptr) {\n    kfree(ptr);\n}\n"}}
 
 **Hapus code mati/bug di baris 45-52:**
-{"tool": "delete_lines", "args": {"path": "kernel/vtx_engine/vtx_core.c", "start_line": 45, "end_line": 52}}
+{"tool": "delete_lines", "args": {"path": "src/mymod/mymod_core.c", "start_line": 45, "end_line": 52}}
 
 **Ganti implementasi fungsi:**
-{"tool": "replace_text", "args": {"path": "kernel/vtx_engine/vtx_core.c", "old_text": "return -1;", "new_text": "return vtx_recover_state();"}}
+{"tool": "replace_text", "args": {"path": "src/mymod/mymod_core.c", "old_text": "return -1;", "new_text": "return mymod_recover_state();"}}
 
 **Bikin folder + file baru sekaligus:**
-{"tool": "create_directory", "args": {"path": "kernel/vtx_engine/render"}}
-{"tool": "create_file", "args": {"path": "kernel/vtx_engine/render/vtx_render.h", "content": "..."}}
+{"tool": "create_directory", "args": {"path": "src/mymod/render"}}
+{"tool": "create_file", "args": {"path": "src/mymod/render/mymod_render.h", "content": "..."}}
 
 
-Task: "Bikin include/vtx/vtx.h dengan error codes"
+Task: "Bikin include/mymod/mymod.h dengan error codes"
 Langkah:
   1. list_dir("include") → lihat pola header existing
   2. read_file("include/kernel.h") → pahami gaya include guard
-  3. create_file("include/vtx/vtx.h", "...") → auto verify
-  4. {"task_done": true, "summary": "vtx.h dibuat dengan error codes VTX_OK=0, VTX_ERR_INIT=-1, ...", "notes": "next: vtx_types.h butuh include vtx.h"}
+  3. create_file("include/mymod/mymod.h", "...") → auto verify
+  4. {"task_done": true, "summary": "mymod.h dibuat dengan error codes MYMOD_OK=0, MYMOD_ERR_INIT=-1, ...", "notes": "next: mymod_types.h butuh include mymod.h"}
 
-Task: "Bikin vtx_core.c"
+Task: "Bikin mymod_core.c"
 Langkah:
-  1. read_file("include/vtx/vtx.h") → tau interface
-  2. create_file("kernel/vtx/vtx_core.c", "...") → auto verify
+  1. read_file("include/mymod/mymod.h") → tau interface
+  2. create_file("src/mymod/mymod_core.c", "...") → auto verify
   3. build_project("build", 4) → cek compile
   4. Kalau FAILED → read error → fix → build lagi
   5. Kalau SUCCESS → task_done
@@ -223,10 +228,10 @@ def _find_balanced(text, start):
 
 
 def execute_tool(name, args):
-    if name not in TOOLS:
+    if name not in _get_tools():
         return f"ERROR: tool '{name}' nggak ada. Yang ada: {list(TOOLS)}"
     try:
-        return TOOLS[name](**args)
+        return _get_tools()[name](**args)
     except TypeError as e:
         return f"ERROR argumen {name}: {e}"
     except Exception as e:

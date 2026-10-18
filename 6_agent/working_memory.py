@@ -39,8 +39,6 @@ def extract_from_turn(user_msg, agent_response):
     u = user_msg.lower()
 
     topics = []
-    if "vtx" in u or "vtx_engine" in u:
-        topics.append(("vtx_engine", user_msg[:200], "high"))
     if "driver" in u:
         topics.append(("driver", user_msg[:200], "normal"))
     if "kernel" in u:

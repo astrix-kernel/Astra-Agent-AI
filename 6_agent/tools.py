@@ -39,8 +39,17 @@ def safe_path(path):
 
     if not path:
         path = "."
-    if path.startswith("/") or path.startswith("~"):
-        raise PermissionError(f"Path absolut tidak diizinkan: {path}")
+    # Handle ~ expansion
+    if path.startswith("~"):
+        path = str(Path(path).expanduser())
+    # Izinkan absolute path JIKA di dalam workspace
+    if path.startswith("/"):
+        full = Path(path).resolve()
+        try:
+            full.relative_to(config.WORKSPACE.resolve())
+            return full
+        except ValueError:
+            raise PermissionError(f"Path absolut di luar workspace: {path}")
     full = (config.WORKSPACE / path).resolve()
     try:
         full.relative_to(config.WORKSPACE.resolve())
@@ -52,7 +61,45 @@ def _verify_syntax(path_obj):
     ext = path_obj.suffix
     if ext not in VERIFY_COMPILER:
         return True, "no verifier"
-    cmd = VERIFY_COMPILER[ext] + [str(path_obj)]
+    cmd = list(VERIFY_COMPILER[ext])
+    # === ASTRIX PATCH: include paths untuk kode kernel C/C++ ===
+    # cwd = config.WORKSPACE, jadi cukup pakai relative path.
+    if ext in (".S", ".s", ".asm"):
+        try:
+            asm_cmd = ["gcc", "-fsyntax-only", "-x", "assembler-with-cpp", str(path_obj)] if ext != ".asm" else ["nasm", "-f", "elf64", str(path_obj), "-o", "/dev/null"]
+            r = subprocess.run(asm_cmd, cwd=str(config.WORKSPACE),
+                               capture_output=True, text=True, timeout=30)
+            return (r.returncode == 0, "syntax OK" if r.returncode == 0 else (r.stderr or r.stdout)[:500])
+        except FileNotFoundError:
+            return True, "assembler not installed, skipped"
+        except Exception as e:
+            return False, f"assembler error: {e}"
+    if ext in (".c", ".h", ".cpp"):
+        cmd += ["-ffreestanding", "-std=gnu11"]
+        # Auto-detect include paths: scan semua subdir dari workspace
+        try:
+            import os as _os
+            from pathlib import Path as _P
+            _ws = _P(str(config.WORKSPACE))
+            _included = set()
+            # Selalu tambah root
+            cmd.append(f"-I{_ws}")
+            # Scan subdir (kedalaman max 3 untuk performa)
+            for _root, _dirs, _fs in _os.walk(str(_ws)):
+                _rel = _os.path.relpath(_root, str(_ws))
+                if _rel == '.': continue
+                # Skip build/cache dirs
+                if any(x in _rel.lower() for x in ['.git','node_modules','__pycache__','.venv','venv','build/','bin/','dist/','target/']):
+                    continue
+                _depth = _rel.count(_os.sep) + 1
+                if _depth > 3: continue
+                if _rel not in _included:
+                    cmd.append(f"-I{_root}")
+                    _included.add(_rel)
+        except Exception:
+            pass
+    cmd.append(str(path_obj))
+    # === END PATCH ===
     try:
         r = subprocess.run(cmd, cwd=str(config.WORKSPACE), capture_output=True, text=True, timeout=30)
         if r.returncode == 0:
@@ -388,11 +435,14 @@ def rename_file(old_path, new_path):
     return f"OK: {old_path} → {new_path}"
 
 
-def read_lines(path, start=1, end=None, default_span=200):
+def read_lines(path, start=1, end=None, default_span=200, start_line=None, end_line=None):
+    # Aliases: LLM kadang manggil start_line/end_line
+    if start_line is not None: start = start_line
+    if end_line is not None: end = end_line
     """Read line range. Output format: [LINES X-Y of N] + numbered lines."""
 
     try:
-        p = Path(path) if Path(path).is_absolute() else ASTRIX_ROOT / path
+        p = safe_path(path)  # safe_path handles both relative (→WORKSPACE) and absolute
         if not p.exists():
             return f"ERROR: File gak ada: {path}"
         try:
@@ -681,6 +731,132 @@ import json
 
 
 
+
+
+# (browser tools attach dipindah ke akhir file)
+
+
+# ============ NEW TOOLS ============
+
+def search_text(pattern, path=".", include="*.c,*.h", max_results=50):
+    """Cari regex pattern di file matching include glob."""
+    import re as _re
+    p = safe_path(path)
+    if not p.exists():
+        return f"ERROR: {path} tidak ada"
+    includes = [x.strip() for x in include.split(",") if x.strip()]
+    results = []
+    try:
+        regex = _re.compile(pattern)
+    except _re.error as e:
+        return f"ERROR: regex invalid: {e}"
+    for inc in includes:
+        for f in p.rglob(inc):
+            if not f.is_file(): continue
+            try:
+                for i, line in enumerate(f.read_text(errors="replace").split("\n"), 1):
+                    if regex.search(line):
+                        results.append(f"{f.relative_to(p)}:{i}: {line[:200]}")
+                        if len(results) >= max_results: break
+            except Exception:
+                continue
+            if len(results) >= max_results: break
+    if not results:
+        return f"OK: tidak ada hasil untuk '{pattern}'"
+    return f"Found {len(results)} match:\n" + "\n".join(results)
+
+
+def find_files(pattern, path=".", max_results=100):
+    """Cari file by glob pattern (e.g. '*.c', '**/*.h')."""
+    p = safe_path(path)
+    if not p.exists():
+        return f"ERROR: {path} tidak ada"
+    results = []
+    for f in p.rglob(pattern):
+        if f.is_file():
+            results.append(str(f.relative_to(p)))
+            if len(results) >= max_results: break
+    if not results:
+        return f"OK: tidak ada file match '{pattern}'"
+    return f"Found {len(results)} files:\n" + "\n".join(results)
+
+
+def multi_write(files):
+    """Tulis BANYAK file sekaligus. files = [{"path": "...", "content": "..."}]"""
+    if not isinstance(files, list):
+        return "ERROR: files harus list of {path, content}"
+    results = []
+    for entry in files:
+        if not isinstance(entry, dict):
+            results.append("SKIP: bukan dict")
+            continue
+        pth = entry.get("path", "")
+        cnt = entry.get("content", "")
+        if not pth:
+            results.append("SKIP: path kosong")
+            continue
+        try:
+            r = write_file(pth, cnt)
+            results.append(f"{pth}: {r[:120]}")
+        except Exception as e:
+            results.append(f"{pth}: ERROR {e}")
+    return "\n".join(results)
+
+
+def rename_file(old_path, new_path):
+    """Rename atau move file."""
+    p = safe_path(old_path)
+    q = safe_path(new_path)
+    if not p.exists():
+        return f"ERROR: {old_path} tidak ada"
+    if q.exists():
+        return f"ERROR: {new_path} sudah ada"
+    q.parent.mkdir(parents=True, exist_ok=True)
+    p.rename(q)
+    log(f"RENAME {old_path} -> {new_path}")
+    return f"OK: {old_path} -> {new_path}"
+
+
+def copy_file(src, dst):
+    """Copy file."""
+    import shutil as _sh
+    p = safe_path(src)
+    q = safe_path(dst)
+    if not p.exists():
+        return f"ERROR: {src} tidak ada"
+    q.parent.mkdir(parents=True, exist_ok=True)
+    _sh.copy2(p, q)
+    log(f"COPY {src} -> {dst}")
+    return f"OK: {src} -> {dst}"
+
+
+def git_status():
+    """Show git status short."""
+    import subprocess as _sp
+    try:
+        r = _sp.run(["git", "status", "--short"], cwd=str(config.WORKSPACE),
+                    capture_output=True, text=True, timeout=10)
+        return r.stdout or "(clean)"
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
+def git_diff(path=""):
+    """Show git diff."""
+    import subprocess as _sp
+    try:
+        cmd = ["git", "diff"]
+        if path: cmd.append(path)
+        r = _sp.run(cmd, cwd=str(config.WORKSPACE),
+                    capture_output=True, text=True, timeout=10)
+        return (r.stdout or "(no diff)")[:3000]
+    except Exception as e:
+        return f"ERROR: {e}"
+
+# ============ END NEW TOOLS ============
+
+
+# ============ TOOLS DICT (dipindah ke akhir agar fungsi terdefinisi dulu) ============
 TOOLS = {
     "web_search": web_search,
     "browse_url": browse_url,
@@ -711,8 +887,15 @@ TOOLS = {
     "guard_replace_text": guard_replace_text,
     "guard_delete_lines": guard_delete_lines,
     "guard_insert_at_line": guard_insert_at_line,
+    "search_text": search_text,
+    "find_files": find_files,
+    "multi_write": multi_write,
+    "copy_file": copy_file,
+    "git_status": git_status,
+    "git_diff": git_diff,
 }
 
+# === Browser tools attach (HARUS setelah TOOLS didefinisikan) ===
 try:
     from browser_agent import BROWSER_TOOLS
     TOOLS.update(BROWSER_TOOLS)

@@ -3,7 +3,12 @@ import json
 import requests
 from config import LLM_URL, LLM_API_KEY, REQUEST_TIMEOUT
 import runtime
-from tools import TOOLS
+
+
+def _get_tools():
+    from tools import TOOLS
+    return TOOLS
+
 
 
 REFLECTION_PROMPT = """Kamu adalah **Reviewer** untuk task OS dev di workspace.

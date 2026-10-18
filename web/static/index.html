@@ -26,6 +26,38 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
+<style>
+/* Collapsible prompt bar */
+#chatInputContainer {
+    transition: padding-bottom 0.3s ease;
+}
+#chatInputPanel {
+    max-height: 400px;
+    transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.3s ease, margin 0.3s ease;
+    overflow: hidden;
+}
+#chatInputPanel.collapsed {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    pointer-events: none;
+}
+#inputHandle {
+    transition: all 0.2s ease;
+    user-select: none;
+}
+#inputHandle:hover .handle-line {
+    background-color: rgba(255,255,255,0.7) !important;
+    width: 100px !important;
+}
+.handle-line {
+    transition: all 0.2s ease;
+}
+</style>
+
 </head>
 <body class="flex h-screen overflow-hidden text-sm">
 
@@ -102,9 +134,9 @@
         </div>
 
         <!-- INPUT -->
-        <div class="w-full px-4 pb-6 pt-4 bg-transparent shrink-0 z-20 absolute bottom-0">
+        <div id="chatInputContainer" class="w-full px-4 pb-3 pt-2 bg-transparent shrink-0 z-20 absolute bottom-0">
             <div class="max-w-4xl mx-auto">
-                <div class="glass-panel rounded-xl p-3 mb-2 relative shadow-2xl">
+                <div id="chatInputPanel" class="glass-panel rounded-xl p-3 mb-2 relative shadow-2xl">
                     <div id="attachmentPreview" class="hidden px-3 pt-3 pb-1">
                         <div class="relative inline-block">
                             <img id="previewImg" class="hidden h-16 rounded-lg border border-white/20 object-cover" src="">
@@ -112,7 +144,7 @@
                             <button id="removeAttach" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-lg">&times;</button>
                         </div>
                     </div>
-                    <textarea id="input" rows="1" data-i18n="input_placeholder" class="w-full bg-transparent text-white px-2 py-2 outline-none resize-none placeholder-gray-500 text-sm" placeholder="Ketik pesan..." oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"></textarea>
+                    <textarea id="input" rows="1" data-i18n="input_placeholder" class="w-full bg-transparent text-white px-2 py-2 outline-none resize-none placeholder-gray-500 text-sm" placeholder="Ketik pesan..." oninput="this.style.height = '1px';this.style.height = Math.min(this.scrollHeight, 200) + 'px'"></textarea>
                     <div class="flex items-center justify-between mt-2 px-1">
                         <div class="flex items-center gap-1">
                             <button id="attachBtn" title="Lampirkan Foto/Video" class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg"><i class="ph ph-plus text-lg"></i></button>
@@ -129,6 +161,9 @@
                             <button id="send" type="button" class="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg"><i class="ph-bold ph-arrow-up text-base"></i></button>
                         </div>
                     </div>
+                </div>
+                <div id="inputHandle" class="flex justify-center pt-2 pb-1 cursor-pointer">
+                    <div class="handle-line w-16 h-1 bg-white/30 rounded-full"></div>
                 </div>
             </div>
         </div>
@@ -430,7 +465,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             
             const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
-            input.value = ''; input.style.height = 'auto';
+            input.value = '';
+            input.style.height = '1px';  // force reflow
+            input.style.height = Math.min(input.scrollHeight, 200) + 'px';
             welcomeScreen.style.display = 'none'; quickPrompts.style.display = 'none'; chatMessages.classList.remove('hidden');
             if (!currentChatId) {
                 currentChatId = 'chat_' + Date.now();
@@ -1574,6 +1611,66 @@ async function handleSlashCommand(text) {
     } catch(e) { addMsg(`❌ ${e.message}`, 'agent'); }
 }
 
+</script>
+
+
+<script>
+// === Collapsible Prompt Bar ===
+(function() {
+    function initCollapsiblePrompt() {
+        const panel = document.getElementById('chatInputPanel');
+        const handle = document.getElementById('inputHandle');
+        if (!panel || !handle) {
+            console.warn('[PROMPT] Panel or handle not found');
+            return;
+        }
+        
+        // Load saved state (default: collapsed)
+        const saved = localStorage.getItem('astra_prompt_expanded');
+        const expanded = saved === 'true';
+        
+        if (!expanded) {
+            panel.classList.add('collapsed');
+        }
+        
+        // Toggle on handle click
+        handle.addEventListener('click', () => {
+            const isCollapsed = panel.classList.contains('collapsed');
+            if (isCollapsed) {
+                panel.classList.remove('collapsed');
+                localStorage.setItem('astra_prompt_expanded', 'true');
+                // Focus input
+                setTimeout(() => {
+                    const input = document.getElementById('input');
+                    if (input) input.focus();
+                }, 350);
+            } else {
+                panel.classList.add('collapsed');
+                localStorage.setItem('astra_prompt_expanded', 'false');
+            }
+        });
+        
+        // Esc to collapse
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !panel.classList.contains('collapsed')) {
+                // Only if not in other modal
+                if (!document.querySelector('.fixed.z-\[100\]')) {
+                    panel.classList.add('collapsed');
+                    localStorage.setItem('astra_prompt_expanded', 'false');
+                }
+            }
+        });
+        
+        console.log('[PROMPT] Collapsible initialized. Expanded:', expanded);
+    }
+    
+    // Init when DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCollapsiblePrompt);
+    } else {
+        initCollapsiblePrompt();
+    }
+})();
 </script>
 
 </body>

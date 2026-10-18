@@ -66,6 +66,9 @@ TRASH_DIR = ASTRIX_ROOT / '.trash'
 import os
 from pathlib import Path
 
+# === LLM request limits ===
+MAX_TOKENS_PER_RESPONSE = 4096
+
 LOG_FILE = Path(os.environ.get("ASTRIX_WORKSPACE", ".")) / "agent.log"
 ALLOWED_COMMANDS = {"ls", "cat", "grep", "make", "python3", "python", "git", "mkdir", "rm", "mv", "cp", "echo", "pwd", "find", "sed", "awk", "touch", "npm", "node", "gcc", "g++", "ping", "curl", "wget", "tree", "head", "tail", "wc", "ps", "top", "df", "free", "uname", "chmod", "chown", "tar", "zip", "unzip", "xdg-open"}
 SELF_ROOT = Path(__file__).parent.parent
@@ -73,7 +76,7 @@ SELF_EDIT_WHITELIST = ["6_agent/", "web/"]
 SELF_EDIT_BLOCK = [".env", "config.py"]
 MAX_FILE_READ_BYTES = 100000
 MAX_TOOL_RESULT_CHARS = 5000
-WRITABLE_EXT = {".c", ".h", ".py", ".txt", ".md", ".json", ".yaml", ".yml", ".sh", ".html", ".css", ".js", ".ts", ".toml", ".ini", ".cfg", ".make", ".mk", ".S", ".asm", ".cpp"}
+WRITABLE_EXT = {".c", ".h", ".py", ".txt", ".md", ".json", ".yaml", ".yml", ".sh", ".html", ".css", ".js", ".ts", ".toml", ".ini", ".cfg", ".make", ".mk", ".S", ".s", ".asm", ".cpp", ".hpp", ".cc", ".hh", ".ld", ".lds", ".rs", ".go", ".java", ".rb", ".php", ".lua", ".vue", ".tsx", ".jsx", ".m", ".mm", ".xml", ".csv"}
 WRITABLE_NAMES = {"Makefile", "Dockerfile", "Kconfig"}
 VERIFY_COMPILER = {
     ".py": ["python3", "-m", "py_compile"],
@@ -86,3 +89,9 @@ VERIFY_COMPILER = {
 REQUEST_TIMEOUT = 300
 
 REQUEST_TIMEOUT = 300
+
+
+# === Agent Task Limits ===
+MAX_TASKS_DEFAULT = 40  # safety cap, AI decides actual count
+MAX_RETRIES_PER_TASK = 3      # retry per task
+MAX_TOTAL_ATTEMPTS = None  # auto: max_tasks * 3

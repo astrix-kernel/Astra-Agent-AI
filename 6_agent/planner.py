@@ -39,15 +39,15 @@ Tugasmu: baca goal dari user, breakdown jadi **15-30 task** yang SATU ORANG BISA
   {"id": 1, "desc": "Eksplorasi: baca Makefile untuk pahami build target"},
   {"id": 2, "desc": "Eksplorasi: list isi kernel/ dan lihat pola folder"},
   {"id": 3, "desc": "Baca kernel/main.c untuk pahami entry point & existing patterns"},
-  {"id": 4, "desc": "Bikin include/vtx/vtx.h — include guard, versi, error codes, struct forward declaration"},
-  {"id": 5, "desc": "Bikin include/vtx/vtx_types.h — struct vtx_context_t, enum, konstanta"},
-  {"id": 6, "desc": "Bikin kernel/vtx/vtx_core.c — implementasi vtx_init() dan vtx_shutdown()"},
-  {"id": 7, "desc": "Build & fix error kompilasi vtx_core.c"},
-  {"id": 8, "desc": "Bikin kernel/vtx/vtx_graphics.c — render pipeline dasar"},
-  {"id": 9, "desc": "Build & fix error vtx_graphics.c"},
-  {"id": 10, "desc": "Update Makefile & Kconfig untuk include VTX Engine sources"},
+  {"id": 4, "desc": "Bikin include/mymod/mymod.h — include guard, versi, error codes, struct forward declaration"},
+  {"id": 5, "desc": "Bikin include/mymod/mymod_types.h — struct mymod_context_t, enum, konstanta"},
+  {"id": 6, "desc": "Bikin src/mymod/mymod_core.c — implementasi mymod_init() dan mymod_shutdown()"},
+  {"id": 7, "desc": "Build & fix error kompilasi mymod_core.c"},
+  {"id": 8, "desc": "Bikin src/mymod/mymod_core_extra.c — fitur tambahan modul"},
+  {"id": 9, "desc": "Build & fix error mymod_core_extra.c"},
+  {"id": 10, "desc": "Update build system (Makefile/CMake/package.json) untuk include source baru"},
   {"id": 11, "desc": "Build full project & pastikan BOOTX64.EFI generated"},
-  {"id": 12, "desc": "Verifikasi: cek simbol VTX ada di binary pakai nm"}
+  {"id": 12, "desc": "Verifikasi: cek simbol modul ter-load di binary/build output"}
 ]}
 
 - JANGAN lebih dari 30 task (mode max: 40)

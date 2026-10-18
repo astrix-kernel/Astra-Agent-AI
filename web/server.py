@@ -195,7 +195,7 @@ class GoalReq(BaseModel):
     workspace: str = ""
     model: str = ""
     coder_mode: bool = True
-    max_tasks: int = 5
+    max_tasks: int = 40
 
 def _run_in_thread(fn, *args, **kwargs):
     """Jalankan fn di thread, redirect output ke broadcast."""
