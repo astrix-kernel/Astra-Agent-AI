@@ -1,3 +1,11 @@
+try:
+    from tts_provider import get_tts_provider
+    tts = get_tts_provider()
+except ImportError:
+    tts = None  # TTS optional: not installed on this machine
+
+from kura_tts import router as kura_router
+from terminal_api import router as terminal_router
 from coder_api import router as coder_router
 import traceback
 """Astra Web UI server — wrap agent + WebSocket streaming."""
@@ -121,7 +129,19 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
+app.include_router(kura_router)
+app.include_router(terminal_router)
+
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 try:
     from settings_ext import register_endpoints as _reg_ext
@@ -428,6 +448,8 @@ WAJAB: Jawab berdasarkan konten di atas. Sebutkan "berdasarkan halaman yang saya
             final = "".join(collected)
             if final.strip():
                 chat_store.append_message(sid, "assistant", final)
+            if tts is not None:
+                __import__("threading").Thread(target=tts.speak, args=(final,), daemon=True).start()
             yield f"data: {_json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             import traceback
@@ -1646,4 +1668,4 @@ async def multi_agent_run(req: dict):
 if __name__ == "__main__":
     import uvicorn
     print("[SERVER] Starting uvicorn on http://0.0.0.0:8765", flush=True)
-    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info", ws="websockets")

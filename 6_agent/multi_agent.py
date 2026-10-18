@@ -41,8 +41,17 @@ Return ONLY a JSON array of strings. Example:
     
     try:
         plan_result, _ = chat_turn(
-            [], planner_prompt,
-            system_prompt="You are a software architect. Break goals into atomic tasks. Respond with ONLY a JSON array, nothing else.",
+                [], planner_prompt,
+                system_prompt="""You are a precise executor. Complete tasks with clear concise output.
+
+[CASCADING PROTOCOL - MANDATORY]
+If a task or command fails, DO NOT give up. 
+1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
+2. If 'read_file' fails, use 'cat' or 'head'.
+3. Break down complex tasks into smaller sub-tasks.
+4. Analyze the error, adapt, and retry until you succeed.
+""",
+
             temperature=0.3, max_tokens=1024,
             **base_kwargs
         )
@@ -138,14 +147,16 @@ Jika tidak butuh alat, jawab dengan teks biasa."""
         try:
             result, _ = chat_turn(
                 history, exec_prompt,
-                system_prompt="You are a precise executor. Complete tasks with clear concise output.\n
-    [CASCADING PROTOCOL - MANDATORY]
-    If a task or command fails, DO NOT give up. 
-    1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
-    2. If 'read_file' fails, use 'cat' or 'head'.
-    3. Break down complex tasks into smaller sub-tasks.
-    4. Analyze the error, adapt, and retry until you succeed.
-    ",
+                system_prompt="""You are a precise executor. Complete tasks with clear concise output.
+
+[CASCADING PROTOCOL - MANDATORY]
+If a task or command fails, DO NOT give up. 
+1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
+2. If 'read_file' fails, use 'cat' or 'head'.
+3. Break down complex tasks into smaller sub-tasks.
+4. Analyze the error, adapt, and retry until you succeed.
+""",
+
                 temperature=0.3, max_tokens=2048,
                 **base_kwargs
             )
@@ -154,9 +165,10 @@ Jika tidak butuh alat, jawab dengan teks biasa."""
             result_clean = re.sub(r'^```(?:json)?\n', '', result_clean)
             result_clean = re.sub(r'\n```$', '', result_clean)
             
-            if result_clean.startswith("{") and result_clean.endswith("}"):
+            json_match = re.search(r'\{.*"tool".*\}', result_clean, re.DOTALL)
+            if json_match:
                 try:
-                    tool_call = json.loads(result_clean)
+                    tool_call = json.loads(json_match.group(0))
                     tool_name = tool_call.get("tool")
                     tool_args = tool_call.get("args", {})
                     
@@ -173,8 +185,17 @@ Jika tidak butuh alat, jawab dengan teks biasa."""
                         history.append({"role": "user", "content": f"Hasil dari {tool_name}: {tool_result}"})
                         
                         final_result, _ = chat_turn(
-                            history, "Berikan ringkasan hasil eksekusi tool tersebut.",
-                            system_prompt="You are a helpful assistant.",
+                history, exec_prompt,
+                system_prompt="""You are a precise executor. Complete tasks with clear concise output.
+
+[CASCADING PROTOCOL - MANDATORY]
+If a task or command fails, DO NOT give up. 
+1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
+2. If 'read_file' fails, use 'cat' or 'head'.
+3. Break down complex tasks into smaller sub-tasks.
+4. Analyze the error, adapt, and retry until you succeed.
+""",
+
                             temperature=0.3, max_tokens=1024,
                             **base_kwargs
                         )

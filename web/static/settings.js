@@ -43,7 +43,7 @@
     { id: 'history', icon: 'ph-clock-clockwise', label: 'Chat History', label_id: 'Riwayat Chat' },
     { id: 'security', icon: 'ph-shield-check', label: 'Security', label_id: 'Keamanan' },
     { id: 'notifications', icon: 'ph-bell', label: 'Notifications', label_id: 'Notifikasi' },
-    { id: 'voice', icon: 'ph-speaker-high', label: 'Voice & TTS', label_id: 'Suara & TTS' },
+    { id: 'voice', icon: 'ph-speaker-high', label: 'Kura - Voice Persona', label_id: 'Suara & TTS' },
     { id: 'developer', icon: 'ph-terminal-window', label: 'Developer', label_id: 'Developer' },
   ];
   
@@ -502,14 +502,16 @@ async memory() {
       const s = loadSettings();
       return `
         <div class="space-y-6">
-          <h2 class="text-2xl font-bold text-white">Voice & TTS</h2>
+          <h2 class="text-2xl font-bold text-white">Kura - Voice Persona</h2>
           <div class="glass-card p-6 rounded-2xl space-y-4">
             <div class="flex items-center justify-between p-3 bg-pink-500/10 border border-pink-500/20 rounded-lg">
-              <div><div class="text-sm text-white font-bold">Enable TTS</div></div>
+              <div><div class="text-sm text-white font-bold">Aktifkan Suara Kura</div></div>
               <input type="checkbox" id="autoTTS" ${s.tts?'checked':''} class="w-10 h-5 rounded-full appearance-none bg-gray-700 checked:bg-pink-500 cursor-pointer relative transition-all before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 before:transition-all checked:before:left-5">
             </div>
             <div>
-              <div class="flex justify-between text-sm font-bold text-white mb-2"><span>Speed</span><span id="val_ttsSpeed" class="text-pink-400 font-mono">${s.ttsSpeed||1}x</span></div>
+              <div class="flex justify-between text-sm font-bold text-white mb-2"><span>
+        
+Speed</span><span id="val_ttsSpeed" class="text-pink-400 font-mono">${s.ttsSpeed||1}x</span></div>
               <input type="range" id="autoTtsSpeed" data-field="ttsSpeed" min="0.5" max="2" step="0.1" value="${s.ttsSpeed||1}" class="w-full accent-pink-500">
             </div>
             <button id="testTtsBtn" class="w-full bg-pink-600 hover:bg-pink-500 text-white px-4 py-3 rounded-xl text-sm font-bold">🔊 Test</button>
@@ -1166,3 +1168,6 @@ async memory() {
     init();
   }
 })();
+
+
+        

@@ -23,6 +23,9 @@
         .border-blue-500 { border-color: var(--accent) !important; }
         .accent-blue-500 { accent-color: var(--accent) !important; }
     </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
 </head>
 <body class="flex h-screen overflow-hidden text-sm">
 
@@ -450,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (const part of parts) {
                         if (part.startsWith('data: ')) {
                             try {
-                                const d = JSON.parse(part.slice(6));
+                                let d; try { d = JSON.parse(part.slice(6)); } catch(e) { console.warn("Bad JSON from server:", part.slice(0, 100)); continue; }
                                 if (d.type === 'chunk') {
                                     chunkCount++;
                                     full += d.text;
@@ -699,11 +702,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const _origAddMsg = addMsg;
                 window.addMsg = function(text, role) {
                     _origAddMsg(text, role);
-                    if (role === 'agent' && ttsEnabled && 'speechSynthesis' in window) {
+                    if (role === 'agent' && ttsEnabled) {
                         const lang = JSON.parse(localStorage.getItem('astrix_settings') || '{}').language || 'id';
-                        const u = new SpeechSynthesisUtterance(text.replace(/[`*#_]/g, '').substring(0, 500));
-                        u.lang = lang === 'en' ? 'en-US' : 'id-ID';
-                        window.speechSynthesis.speak(u);
+                        const cleanText = text.replace(/[`*#_]/g, '').substring(0, 500);
+                        const voiceName = JSON.parse(localStorage.getItem('astrix_settings') || '{}').ttsVoice || 'gadis';
+                        const audioUrl = '/api/kura-tts?text=' + encodeURIComponent(cleanText);
+                        const audio = new Audio(audioUrl);
+                        audio.play().catch(e => console.warn('TTS error:', e));
                     }
                 };
             }
@@ -1335,7 +1340,100 @@ window.openModelPicker = async function() {
 };
 </script>
 
-</body>
+
+<!-- FLOATING TERMINAL UI -->
+<button id="astra-term-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 99999;" class="px-4 py-2 bg-black/80 text-green-400 text-xs font-mono rounded-xl border border-green-500/50 hover:bg-green-500/20 transition shadow-[0_0_15px_rgba(34,197,94,0.3)] flex items-center gap-2">
+    <i class="ph ph-terminal-window text-lg"></i> Terminal
+</button>
+<div id="astra-term-panel" style="display: none; position: fixed; bottom: 20px; right: 20px; width: 600px; height: 400px; z-index: 99998; flex-direction: column;" class="bg-[#0a0c10]/95 backdrop-blur-xl rounded-xl border border-green-500/50 shadow-[0_10px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(34,197,94,0.2)] overflow-hidden resize">
+    <div class="flex justify-between items-center px-3 py-2 bg-[#161b22] border-b border-white/10 cursor-move" id="astra-term-header">
+        <span class="text-xs text-gray-400 font-mono flex items-center gap-2"><i class="ph ph-terminal text-green-500"></i> Astra Terminal</span>
+        <button id="astra-term-close" class="text-gray-400 hover:text-white"><i class="ph ph-x"></i></button>
+    </div>
+    <div id="astra-term-body" class="flex-1 p-1 bg-black/50"></div>
+</div>
+
+<script>
+(function() {
+    const btn = document.getElementById('astra-term-btn');
+    const panel = document.getElementById('astra-term-panel');
+    const close = document.getElementById('astra-term-close');
+    const container = document.getElementById('astra-term-body');
+    let term, fitAddon, ws;
+    
+    let isDrag = false, startX, startY, startLeft, startTop;
+    const header = document.getElementById('astra-term-header');
+    
+    header.addEventListener('mousedown', (e) => {
+        isDrag = true;
+        startX = e.clientX; startY = e.clientY;
+        startLeft = panel.offsetLeft; startTop = panel.offsetTop;
+        panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    });
+    document.addEventListener('mousemove', (e) => {
+        if(!isDrag) return;
+        panel.style.left = (startLeft + e.clientX - startX) + 'px';
+        panel.style.top = (startTop + e.clientY - startY) + 'px';
+    });
+    document.addEventListener('mouseup', () => isDrag = false);
+
+    btn.onclick = () => {
+        panel.style.display = 'flex';
+        if (!term) {
+            term = new Terminal({ cursorBlink: true, theme: { background: '#0a0c10', foreground: '#c9d1d9', cursor: '#22c55e' }, fontSize: 13, fontFamily: 'monospace' });
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(container);
+            fitAddon.fit();
+            term.focus();
+            
+            ws = new WebSocket((window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/terminal');
+            ws.binaryType = 'arraybuffer';
+            ws.onmessage = (e) => term.write(new Uint8Array(e.data));
+            ws.onopen = () => term.writeln('Welcome to Astra Terminal!\r\nType \'help\' to see available commands.\r\n');
+            ws.onclose = () => { term.write('\r\n[Terminal Closed]\r\n'); console.warn('Terminal WS Closed'); };
+            term.onData(d => { if (ws.readyState === WebSocket.OPEN) ws.send(new TextEncoder().encode(d)); });
+        } else {
+            setTimeout(() => { fitAddon.fit(); term.focus(); }, 100);
+        }
+    };
+    
+    close.onclick = () => { panel.style.display = 'none'; };
+})();
+</script>
+
+
+<script>
+(function() {
+    const AI_EXTS = [
+        { id: "opencode-ai", name: "OpenCode AI", category: "AI Assistant", desc: "Terminal-based AI coding agent by SST", icon: "ph-terminal-window", color: "text-green-400", bg: "bg-green-500/20" },
+        { id: "kilo-code", name: "Kilo Code", category: "AI Assistant", desc: "AI coding assistant with CLI integration", icon: "ph-robot", color: "text-purple-400", bg: "bg-purple-500/20" }
+    ];
+    const _origFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const res = await _origFetch.apply(this, args);
+        const url = (typeof args[0] === 'string') ? args[0] : (args[0]?.url || '');
+        if (url.includes('/api/extensions/list')) {
+            try {
+                const data = await res.clone().json();
+                if (data && Array.isArray(data.extensions)) {
+                    const existingIds = data.extensions.map(e => e.id);
+                    const toAdd = AI_EXTS.filter(e => !existingIds.includes(e.id));
+                    data.extensions = toAdd.concat(data.extensions);
+                    return new Response(JSON.stringify(data), {
+                        status: res.status,
+                        headers: {'Content-Type': 'application/json'}
+                    });
+                }
+            } catch(e) {}
+        }
+        return res;
+    };
+})();
+</script>
+
+
+        </body>
 
 </html>
 
