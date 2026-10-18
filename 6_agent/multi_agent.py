@@ -17,8 +17,36 @@ import os
 
 import subprocess
 
+
+def _extract_first_json(text):
+    """Extract first valid JSON object with 'tool' key from text."""
+    import json as _j
+    import re as _re
+    decoder = _j.JSONDecoder()
+    pos = 0
+    while pos < len(text):
+        match = _re.search(r'\{', text[pos:])
+        if not match:
+            break
+        start = pos + match.start()
+        try:
+            obj, end = decoder.raw_decode(text[start:])
+            if isinstance(obj, dict) and "tool" in obj:
+                return obj
+        except _j.JSONDecodeError:
+            pass
+        pos = start + 1
+    return None
+
 def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max_tasks=5,
-                    base_url=None, api_key=None, model=None, coder_mode=False, status_callback=None):
+                    base_url=None, api_key=None, model=None, coder_mode=False, status_callback=None, workspace=None):
+    if workspace:
+        try:
+            from config import set_workspace
+            set_workspace(workspace)
+        except Exception as e:
+            print(f"[WORKSPACE] Failed: {e}", flush=True)
+    
     """Plan → Execute → Return results. Support custom API params."""
     
     def log(msg):
@@ -125,49 +153,95 @@ If a task or command fails, DO NOT give up.
     results = []
     history = []
     
-    AVAILABLE_TOOLS = """Kamu punya akses ke alat ini: 
-1. read_file(path)
-2. write_file(path, content)
-3. run_command(command)"""
+    AVAILABLE_TOOLS = """Kamu punya akses ke alat ini:
+
+1. **read_file(path)** → BACA file yang SUDAH ADA. Kalau file nggak ada, akan error.
+2. **write_file(path, content)** → TULIS/BUAT file baru (atau timpa yang lama). Pakai ini untuk CREATE atau MODIFY.
+3. **run_command(command)** → Jalanin shell command (ls, cat, make, gcc, find, dll).
+
+⚠️ PENTING:
+- Kalau task = "Create X" atau "Write X" → pakai write_file
+- Kalau task = "Read X" atau "Check X" → pakai read_file
+- Kalau task = "List" atau "Find" → pakai run_command
+- JANGAN pake read_file buat file yang belum ada.
     
     
+    """
     coder_instructions = """
-    [CODER MODE ACTIVE]
-    You are an autonomous coding agent. For EVERY task, you MUST follow this loop:
-    1. SCAN: Read the file and check for current errors.
-    2. CODE: Make the necessary changes.
-    3. VERIFY: IMMEDIATELY run a build or syntax check (e.g., make, gcc -fsyntax-only <file>, or python3 -m py_compile <file>).
-    4. FIX: If there is an error, fix it and VERIFY again.
-    DO NOT finish the task until the code successfully compiles.
+    [CODER MODE ACTIVE - HUMAN-LIKE REPORTER]
+    
+    You are a friendly autonomous coding agent that TALKS to the user while working.
+    
+    For every task:
+    1. SCAN: Read file / check state. THEN report what you found.
+    2. CODE: Make changes via tools. THEN report what you changed.
+    3. VERIFY: Run build/syntax check. THEN report the result.
+    4. FIX: If error, fix and re-verify. Report each step.
+    
+    REPORTING RULES (WAJIB):
+    - After each tool call, ALWAYS say something to the user.
+    - Use the user's language (Bahasa Indonesia if user uses Indonesian).
+    - Examples:
+      * "Aku cek file vtx_engine.c... ada 3 function utama, ada warning di baris 42."
+      * "Aku udah ubah fungsi render() - sekarang handle null pointer juga."
+      * "Aku jalanin make... hasilnya sukses! Binary di build/vtx."
+      * "Waduh, error di baris 42. Coba aku fix..."
+      * "Beres! Ringkasan: aku tambah file X, ubah Y, build Z sukses."
+    
+    Tone: casual, friendly, informative. Kayak senior dev mentoring junior.
+    JANGAN cuma "OK" atau "Done" tanpa penjelasan.
     """ if coder_mode else ""
 
+    # Extract workspace name (computed once per run)
+    try:
+        from config import WORKSPACE as _WS
+        workspace_name = _WS.name or str(_WS)
+    except Exception:
+        workspace_name = "workspace"
+    
     for i, task in enumerate(tasks, 1):
         log(f"⚙️ Task {i}/{len(tasks)}: {task[:60]}")
         if status_callback: status_callback("task", f"⚙️ Task {i}/{len(tasks)}: {task[:50]}")
+
         
         exec_prompt = f"""Task {i}/{len(tasks)}: {task}
 
-    [WORKSPACE CONTEXT]
-    CRITICAL: The 'Astrix.OSdev' is a LOCAL FOLDER on the filesystem, NOT a website URL. 
-    Do NOT use browser tools to open it. 
-    Use filesystem tools like list_dir, read_file, or run_command (e.g., 'ls', 'find') to inspect its contents.
+    [WORKSPACE CONTEXT - READ CAREFULLY]
+    - You are ALREADY INSIDE the workspace folder `{workspace_name}`.
+    - Current working directory (cwd) for ALL commands = `{workspace_name}`.
+    - DO NOT prefix paths with `{workspace_name}/` - that will fail.
+    - Use RELATIVE paths (e.g., `ls .`, `ls kernel/`, `cat main.c`).
+    - Example BENAR: `ls -la .` atau `find . -name "*.c"`
+    - Example SALAH: `ls -la {workspace_name}` atau `ls -la Astrix.OSdev/`
+    - This is a LOCAL FOLDER on filesystem, NOT a website URL. Do NOT use browser tools.
     
 
 {coder_instructions}
 {coder_instructions}
 
 Context dari task sebelumnya:
-{chr(10).join([f'- {r[:300]}' for r in results[-2:]]) or 'Belum ada'}
+{chr(10).join([f'- {r[:300]}' for r in results[-2:] if r]) or 'Belum ada'}
 
 {AVAILABLE_TOOLS}
 
-INSTRUKSI WAJIB: 
-Jika kamu butuh membaca file, tulis file, atau menjalankan terminal, KAMU HARUS membalas dengan format JSON seperti ini (jangan pakai markdown, jangan pakai teks lain):
-{{"tool": "write_file", "args": {{"path": "main.c", "content": "..."}}}}
-Atau
-{{"tool": "run_command", "args": {{"command": "make -j4"}}}}
+INSTRUKSI:
+1. Kalau butuh tool, balas HANYA dengan JSON (tanpa teks lain):
+   {{"tool": "write_file", "args": {{"path": "main.c", "content": "..."}}}}
+   {{"tool": "run_command", "args": {{"command": "make -j4"}}}}
 
-Jika tidak butuh alat, jawab dengan teks biasa."""
+2. Kalau udah selesai / nggak butuh tool lagi, balas dengan LAPORAN NATURAL:
+   - APA yang kamu temukan (kalau abis baca file)
+   - APA yang kamu ubah (kalau abis edit)
+   - HASIL (kalau abis run command)
+   - Bahasa manusia, bukan "OK" doang.
+   - Pakai bahasa user (Indonesia kalau user Indonesia).
+   
+   Contoh laporan bagus:
+   - "Aku udah cek `vtx_engine.c`. Ada 3 function: init, render, cleanup. Semua ada warning unused variable."
+   - "Aku udah tambahin `vtx_glob.c` dengan fungsi `vtx_glob_init()`. Coba `make`."
+   - "Waduh, `make` gagal di baris 42: missing semicolon. Aku fix dulu..."
+   - "Beres! Build sukses. Binary ada di `build/vtx`."
+"""
 
         try:
             result, _ = chat_turn(
@@ -193,10 +267,9 @@ If a task or command fails, DO NOT give up.
             result_clean = re.sub(r'^```(?:json)?\n', '', result_clean)
             result_clean = re.sub(r'\n```$', '', result_clean)
             
-            json_match = re.search(r'\{.*"tool".*\}', result_clean, re.DOTALL)
-            if json_match:
+            tool_call = _extract_first_json(result_clean)
+            if tool_call:
                 try:
-                    tool_call = json.loads(json_match.group(0))
                     tool_name = tool_call.get("tool")
                     tool_args = tool_call.get("args", {})
                     

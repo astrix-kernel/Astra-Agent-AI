@@ -292,6 +292,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let _currentAbortController = null;
         async function handleSend() {
+        // === SLASH COMMAND INTERCEPTOR (At the very top) ===
+        const _inputEarly = document.getElementById('input');
+        const _textEarly = _inputEarly ? _inputEarly.value.trim() : '';
+        
+        // Cegat semua slash command KECUALI /goal
+        if (_textEarly.startsWith('/') && !_textEarly.startsWith('/goal ')) {
+            _inputEarly.value = '';
+            _inputEarly.style.height = 'auto';
+            addMsg(_textEarly, 'user');
+            try { await handleSlashCommand(_textEarly); }
+            catch(e) { addMsg('❌ ' + e.message, 'agent'); }
+            return;
+        }
+        // ====================================================
+
     // JIKA CODER MODE AKTIF, LEMPAR KE SISTEM AGENT (MULTI-AGENT) YANG PUNYA TOOLS
     const _am = JSON.parse(localStorage.getItem('astrix_settings') || '{}').activeAgentMode || 'chat';
     const _needsTools = ['coder', 'multi_agent', 'autonomous'].includes(_am);
@@ -327,8 +342,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     goal: text,
                     max_tasks: 10,
-                    model: (selectedModel && selectedModel.id) ? selectedModel.id : (s.modelOverride || ''),
-                    coder_mode: true
+                    model: (selectedModel && selectedModel.id) ? selectedModel.id : (window._allModels?.[0]?.id || s.modelOverride || ''),
+                    coder_mode: true,
+                    workspace: s.workspace || ''
                 })
             });
             if (!res.ok) throw new Error('Server Error ' + res.status);
@@ -410,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const text = input.value.trim();
             if (!text) return;
+
             
             
             const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
@@ -1195,7 +1212,7 @@ window.renderModelMenu = async function() {
     searchWrapper.className = 'sticky top-0 bg-[#0d1117] p-2 z-10 border-b border-white/10 mb-1';
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
-    searchInput.placeholder = 'Cari model (contoh: openai, nemotron)...';
+    searchInput.placeholder = 'Cari model (contoh: llama3, mistral, gpt-4)...';
     searchInput.className = 'w-full bg-[#161b22] text-xs px-3 py-2 rounded-lg border border-white/10 outline-none text-gray-200';
     searchWrapper.appendChild(searchInput);
     menu.appendChild(searchWrapper);
@@ -1269,7 +1286,7 @@ window.renderModelMenu = async function() {
             <button onclick="document.getElementById('modelModal').classList.add('hidden')" class="text-gray-400 hover:text-white"><i class="ph ph-x text-xl"></i></button>
         </div>
         <div class="p-4 border-b border-white/10">
-            <input id="modalSearch" type="text" placeholder="Cari model (contoh: openai, nemotron, deepseek)..." class="w-full bg-[#161b22] text-sm text-white px-4 py-3 rounded-xl border border-white/10 outline-none focus:border-blue-500">
+            <input id="modalSearch" type="text" placeholder="Cari model (contoh: llama3, mistral, deepseek)..." class="w-full bg-[#161b22] text-sm text-white px-4 py-3 rounded-xl border border-white/10 outline-none focus:border-blue-500">
         </div>
         <div id="modalList" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
     </div>
@@ -1459,6 +1476,104 @@ window.openModelPicker = async function() {
         };
     }
 })();
+
+// === SLASH COMMAND HANDLER ===
+async function handleSlashCommand(text) {
+    const match = text.match(/^\/(\w+)\s*(.*)$/);
+    if (!match) return;
+    const cmd = match[1].toLowerCase();
+    const args = match[2].trim();
+
+    // --- CLIENT-SIDE COMMANDS ---
+    if (['new','clear','reset'].includes(cmd)) {
+        chatMessages.innerHTML = '';
+        welcomeScreen.style.display = '';
+        quickPrompts.style.display = '';
+        currentChatId = null; currentChatMessages = [];
+        addMsg('✨ Chat baru dimulai.', 'agent');
+        return;
+    }
+    if (cmd === 'history') {
+        const msgs = currentChatMessages || [];
+        if (!msgs.length) { addMsg('ℹ️ Belum ada chat.', 'agent'); return; }
+        addMsg(`📜 **${msgs.length} messages:**\n\n` + msgs.map((m,i)=>`${i+1}. [${m.role}] ${(m.content||'').slice(0,80)}`).join('\n'), 'agent');
+        return;
+    }
+    if (cmd === 'save') {
+        const data = {chatId: currentChatId, messages: currentChatMessages, settings: JSON.parse(localStorage.getItem('astrix_settings')||'{}'), ts: Date.now()};
+        const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `astra-${Date.now()}.json`; a.click();
+        addMsg('✅ Downloaded JSON.', 'agent');
+        return;
+    }
+    if (cmd === 'export') {
+        const md = (currentChatMessages||[]).map(m=>`## ${m.role}\n\n${m.content||''}`).join('\n\n---\n\n');
+        const blob = new Blob([md], {type:'text/markdown'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `astra-${Date.now()}.md`; a.click();
+        addMsg('✅ Downloaded Markdown.', 'agent');
+        return;
+    }
+    if (cmd === 'undo') {
+        const all = chatMessages.querySelectorAll('.flex.gap-4');
+        if (all.length >= 2) {
+            all[all.length-1].remove();
+            all[all.length-2].remove();
+            if (currentChatMessages) currentChatMessages.splice(-2,2);
+            addMsg('↩️ Undone.', 'agent');
+        } else addMsg('ℹ️ Nothing to undo.', 'agent');
+        return;
+    }
+    if (cmd === 'rewind') { chatMessages.scrollTop = 0; addMsg('⏪ Top.', 'agent'); return; }
+    if (cmd === 'share') {
+        const txt = (currentChatMessages||[]).map(m=>`${m.role}: ${m.content}`).join('\n\n');
+        navigator.clipboard.writeText(txt); addMsg('✅ Copied!', 'agent'); return;
+    }
+    if (cmd === 'retry') {
+        const last = [...(currentChatMessages||[])].reverse().find(m=>m.role==='user');
+        if (last) { input.value = last.content; handleSend(); } else addMsg('ℹ️ No message.', 'agent');
+        return;
+    }
+    if (cmd === 'model') {
+        if (!args) { addMsg(`🤖 Current: **${selectedModel?.id||'default'}**`, 'agent'); return; }
+        const found = (window._allModels||[]).find(m=>m.id===args||m.id.includes(args));
+        if (found) { selectedModel = found; window.updateModelUI?.(); addMsg(`✅ Model: **${found.id}**`, 'agent'); }
+        else addMsg(`❌ Not found: ${args}`, 'agent');
+        return;
+    }
+    if (cmd === 'agents') {
+        addMsg('🤖 Modes: coder, analysis, chat, multi_agent, creative, knowledge, search, autonomous', 'agent'); return;
+    }
+    if (cmd === 'mode') {
+        const valid = ['coder','analysis','chat','multi_agent','creative','knowledge','search','autonomous'];
+        if (!args || !valid.includes(args.toLowerCase())) { addMsg(`Usage: /mode <${valid.join('|')}>`, 'agent'); return; }
+        const s = JSON.parse(localStorage.getItem('astrix_settings')||'{}');
+        s.activeAgentMode = args.toLowerCase();
+        localStorage.setItem('astrix_settings', JSON.stringify(s));
+        addMsg(`✅ Mode: **${args}**`, 'agent'); return;
+    }
+    if (cmd === 'plan') {
+        const s = JSON.parse(localStorage.getItem('astrix_settings')||'{}');
+        s.planMode = !s.planMode;
+        localStorage.setItem('astrix_settings', JSON.stringify(s));
+        addMsg(`📋 Plan mode: **${s.planMode?'ON':'OFF'}**`, 'agent'); return;
+    }
+    if (cmd === 'sessions' || cmd === 'resume') {
+        const chats = getChats();
+        addMsg('💬 **Chats:**\n' + Object.entries(chats).map(([id,c])=>`- **${c.title}** (${(c.messages||[]).length} msgs)`).join('\n'), 'agent'); return;
+    }
+
+    // --- SERVER-SIDE COMMANDS ---
+    const s = JSON.parse(localStorage.getItem('astrix_settings')||'{}');
+    try {
+        const res = await fetch('/api/command', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({command:cmd, args, workspace:s.workspace||'', model:selectedModel?.id||'', chat_id:currentChatId||''})
+        });
+        const data = await res.json();
+        if (data.message) addMsg(data.message, 'agent');
+    } catch(e) { addMsg(`❌ ${e.message}`, 'agent'); }
+}
+
 </script>
 
 </body>

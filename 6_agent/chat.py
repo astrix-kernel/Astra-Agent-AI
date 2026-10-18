@@ -6,6 +6,15 @@ import stop_flag
 from config import LLM_URL, LLM_API_KEY
 
 
+
+def _get_default_model():
+    """Ambil model dari config. Empty string = provider picks default."""
+    try:
+        from config import LLM_MODEL, DEFAULT_MODEL
+        return LLM_MODEL or DEFAULT_MODEL or ""
+    except Exception:
+        return ""
+
 def _build_messages(history, user_msg, system_prompt):
     """Arrange the messages array for THE API."""
 
@@ -104,7 +113,7 @@ def chat_turn_streaming(history, user_msg, focus="chat", on_chunk=None,
         "Content-Type": "application/json",
     }
     payload = {
-        "model": custom_model or "nvidia/nvidia/nemotron-3-super-120b-a12b",
+        "model": custom_model or _get_default_model(),
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -158,7 +167,7 @@ def chat_turn(history, user_msg, focus="chat", max_tool_rounds=None,
         "Content-Type": "application/json",
     }
     payload = {
-        "model": custom_model or "nvidia/nvidia/nemotron-3-super-120b-a12b",
+        "model": custom_model or _get_default_model(),
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,

@@ -13,19 +13,42 @@ if _env_path.exists():
             _key, _val = _line.split('=', 1)
             os.environ.setdefault(_key.strip(), _val.strip())
 
+
+# === WORKSPACE (mutable, bisa diubah per-request) ===
+SELF_ROOT = Path(__file__).parent.parent.resolve()
+ASTRIX_ROOT = SELF_ROOT
+WORKSPACE = Path(os.getenv("ASTRIX_WORKSPACE", str(SELF_ROOT))).resolve()
+
+def set_workspace(new_path: str):
+    """Set workspace ke folder tertentu. Return True kalau sukses."""
+    global WORKSPACE
+    if not new_path:
+        return False
+    try:
+        p = Path(new_path).resolve()
+        if p.is_dir():
+            WORKSPACE = p
+            print(f"[WORKSPACE] Set to: {WORKSPACE}", flush=True)
+            return True
+    except Exception as e:
+        print(f"[WORKSPACE] Failed: {e}", flush=True)
+    return False
+
 LOG_DIR = Path(os.getenv("ASTRIX_LOG_DIR", str(Path(__file__).parent.parent / "logs")))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 LLM_URL = os.getenv("LLM_URL", "http://localhost:20128/v1/chat/completions")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_MODEL = None 
+LLM_MODEL = os.getenv("LLM_MODEL", None)
+# Model fallback kalau user gak set LLM_MODEL. Empty string = provider default.
+DEFAULT_MODEL = os.getenv("ASTRIX_DEFAULT_MODEL", "") 
 
-WORKSPACE = os.getenv("ASTRIX_WORKSPACE", str(Path.home()))
+
 
 PORT = int(os.getenv("ASTRIX_PORT", "8765"))
 HOST = os.getenv("ASTRIX_HOST", "0.0.0.0")
 
-ASTRIX_ROOT = Path(os.getenv("ASTRIX_ROOT", str(Path.home())))
+
 
 SELF_ROOT = Path(__file__).parent.parent
 SELF_EDIT_WHITELIST = [

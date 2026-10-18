@@ -5,7 +5,7 @@ except ImportError:
     tts = None  # TTS optional: not installed on this machine
 
 import json as _json
-from kura_tts import router as kura_router
+# [DISABLED] TTS removed
 from terminal_api import router as terminal_router
 from coder_api import router as coder_router
 import traceback
@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI()
-app.include_router(kura_router)
+# [DISABLED] TTS router removed
 app.include_router(terminal_router)
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -192,7 +192,10 @@ class ChatReq(BaseModel):
 
 class GoalReq(BaseModel):
     goal: str
-
+    workspace: str = ""
+    model: str = ""
+    coder_mode: bool = True
+    max_tasks: int = 5
 
 def _run_in_thread(fn, *args, **kwargs):
     """Jalankan fn di thread, redirect output ke broadcast."""
@@ -531,6 +534,30 @@ def _do_chat(msg, focus, web_search=False):
     broadcast({"kind": "session_updated", "session_id": sid}, "system")
 
 
+
+def _auto_detect_model(base_url: str, api_key: str) -> str:
+    """Fetch first available model from provider. Fallback to empty."""
+    import requests
+    try:
+        url = base_url.rstrip('/') + '/models'
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            models = data.get('data', [])
+            if models:
+                # Prefer non-free, non-embedding models
+                for m in models:
+                    mid = m.get('id', '')
+                    if mid and 'embed' not in mid.lower() and ':free' not in mid:
+                        return mid
+                # Fallback to first
+                return models[0].get('id', '')
+    except Exception as e:
+        print(f"[AUTO-MODEL] Failed: {e}", flush=True)
+    return ""
+
+
 @app.post("/api/goal")
 async def goal(req: GoalReq):
     import asyncio
@@ -545,11 +572,25 @@ async def goal(req: GoalReq):
     def run_agent():
         try:
             from multi_agent import run_multi_agent
+            
+            # Resolve model: pakai req.model kalau ada, atau auto-detect
+            _model = req.model or ""
+            if not _model:
+                try:
+                    from config import LLM_URL, LLM_API_KEY
+                    _base = LLM_URL.rsplit('/chat/completions', 1)[0]
+                    _model = _auto_detect_model(_base, LLM_API_KEY)
+                    if _model:
+                        print(f"[AUTO-MODEL] Using: {_model}", flush=True)
+                except Exception as _e:
+                    print(f"[AUTO-MODEL] Failed: {_e}", flush=True)
+            
             result = run_multi_agent(
                 req.goal,
-                model=getattr(req, 'model', None),
+                model=_model or None,
                 coder_mode=getattr(req, 'coder_mode', True),
-                status_callback=status_cb
+                status_callback=status_cb,
+                workspace=req.workspace or None
             )
             status_queue.put({"type": "final", "result": result})
         except Exception as e:
@@ -1018,6 +1059,7 @@ async def ws_endpoint(ws: WebSocket):
 
 class AgentReq(BaseModel):
     goal: str
+    workspace: str = ""
     scope: str
     model: str = ""
     mode: str = "medium"
@@ -1696,6 +1738,185 @@ async def multi_agent_run(req: dict):
         import traceback
         traceback.print_exc()
         return {"error": str(e), "logs": logs}
+
+
+# ============================================================
+# SLASH COMMAND HANDLER (/api/command)
+# ============================================================
+
+class CommandReq(BaseModel):
+    command: str
+    args: str = ""
+    workspace: str = ""
+    model: str = ""
+    chat_id: str = ""
+
+HELP_TEXT = """## 📚 Daftar Perintah
+
+### 🗂️ Session
+- `/new`, `/clear`, `/reset` — Mulai chat baru
+- `/history` — Lihat riwayat chat
+- `/save` — Download chat sebagai JSON
+- `/export` — Download chat sebagai Markdown
+- `/undo` — Hapus pesan terakhir (user + AI)
+- `/rewind` — Scroll ke atas
+- `/sessions` — Lihat daftar chat
+- `/share` — Copy chat ke clipboard
+
+### 🧠 Context & Memory
+- `/context` — Info workspace & model
+- `/cost` — Estimasi biaya token
+- `/compact`, `/summarize` — Ringkas chat via LLM
+- `/add <file>` — Tambah file ke context
+- `/drop` — Clear context
+
+### 🤖 Model & Mode
+- `/model <name>` — Ganti model AI
+- `/agents` — Lihat daftar mode
+- `/mode <name>` — Ganti mode agent
+- `/plan` — Toggle mode planning
+
+### 💻 Code & Git
+- `/diff` — Lihat git diff
+- `/commit <msg>` — Git commit semua perubahan
+- `/review` — Review kode via LLM
+- `/init` — Setup workspace (buat .env.example, .gitignore)
+
+### 🔧 Other
+- `/retry` — Kirim ulang pesan terakhir
+- `/help` — Tampilkan bantuan ini
+- `/goal <task>` — Eksekusi tugas multi-agent (existing)
+"""
+
+@app.post("/api/command")
+async def handle_command(req: CommandReq):
+    import subprocess as _sp
+    from pathlib import Path as _P
+
+    cmd = req.command.lower().lstrip('/')
+    args = req.args.strip()
+    workspace = req.workspace or str(_P.cwd())
+    try:
+        from config import LLM_MODEL, DEFAULT_MODEL
+        _default_model = LLM_MODEL or DEFAULT_MODEL or ""
+    except Exception:
+        _default_model = ""
+    model = req.model or _default_model
+
+    if cmd == "help":
+        return {"type": "text", "message": HELP_TEXT}
+
+    if cmd == "context":
+        return {"type": "text", "message": f"**📊 Context**\n- Workspace: `{workspace}`\n- Model: `{model}`\n- Chat ID: `{req.chat_id or 'unknown'}`"}
+
+    if cmd == "cost":
+        total_chars = 0
+        try:
+            sid = req.chat_id
+            if sid and sid in chat_store.sessions:
+                for msg in chat_store.sessions[sid]:
+                    total_chars += len(msg.get('content', ''))
+        except: pass
+        tokens = total_chars // 4
+        cost_usd = (tokens / 1000) * 0.0005
+        return {"type": "text", "message": f"**💰 Cost Estimate**\n- Chars: {total_chars:,}\n- Tokens: ~{tokens:,}\n- Cost: ~${cost_usd:.6f} (Rp {cost_usd*16000:,.0f})"}
+
+    if cmd in ("compact", "summarize"):
+        try:
+            sid = req.chat_id
+            if not sid or sid not in chat_store.sessions:
+                return {"type": "text", "message": "❌ Tidak ada chat untuk di-compact."}
+            msgs = chat_store.sessions[sid]
+            if len(msgs) < 4:
+                return {"type": "text", "message": "ℹ️ Chat terlalu pendek."}
+            text = "\n".join([f"{m['role']}: {m['content'][:200]}" for m in msgs])
+            import httpx
+            async with httpx.AsyncClient(timeout=60) as client:
+                r = await client.post("http://localhost:20128/v1/chat/completions",
+                    json={"model": model,
+                          "messages": [{"role": "user", "content": f"Ringkas percakapan berikut dalam 3-5 poin singkat (Bahasa Indonesia):\n\n{text}"}],
+                          "max_tokens": 500})
+                if r.status_code == 200:
+                    summary = r.json()["choices"][0]["message"]["content"]
+                    return {"type": "text", "message": f"✅ **Compacted**\n\n{summary}"}
+            return {"type": "text", "message": "❌ Compact failed."}
+        except Exception as e:
+            return {"type": "text", "message": f"❌ Error: {e}"}
+
+    if cmd == "add":
+        if not args:
+            return {"type": "text", "message": "❌ Usage: `/add <path>`"}
+        try:
+            fpath = _P(workspace) / args if not args.startswith('/') else _P(args)
+            if not fpath.is_file():
+                return {"type": "text", "message": f"❌ File tidak ditemukan: {args}"}
+            content = fpath.read_text(errors='replace')[:5000]
+            return {"type": "text", "message": f"✅ `{args}` ditambahkan ke context ({len(content)} chars)"}
+        except Exception as e:
+            return {"type": "text", "message": f"❌ {e}"}
+
+    if cmd == "drop":
+        return {"type": "text", "message": "✅ Context cleared."}
+
+    if cmd == "diff":
+        try:
+            r = _sp.run(["git", "diff", "--stat"], cwd=workspace, capture_output=True, text=True, timeout=10)
+            if r.returncode != 0:
+                return {"type": "text", "message": f"❌ Bukan git repo: {r.stderr[:200]}"}
+            if not r.stdout.strip():
+                return {"type": "text", "message": "ℹ️ Tidak ada perubahan."}
+            return {"type": "text", "message": f"```\n{r.stdout[:3000]}\n```"}
+        except Exception as e:
+            return {"type": "text", "message": f"❌ {e}"}
+
+    if cmd == "commit":
+        if not args:
+            return {"type": "text", "message": "❌ Usage: `/commit <msg>`"}
+        try:
+            _sp.run(["git", "add", "-A"], cwd=workspace, timeout=10)
+            r = _sp.run(["git", "commit", "-m", args], cwd=workspace, capture_output=True, text=True, timeout=10)
+            if r.returncode != 0:
+                return {"type": "text", "message": f"❌ Commit gagal: {r.stderr[:300]}"}
+            return {"type": "text", "message": f"✅ Committed: {args}\n\n{r.stdout[:300]}"}
+        except Exception as e:
+            return {"type": "text", "message": f"❌ {e}"}
+
+    if cmd == "review":
+        try:
+            r = _sp.run(["git", "diff"], cwd=workspace, capture_output=True, text=True, timeout=10)
+            if not r.stdout.strip():
+                return {"type": "text", "message": "ℹ️ Tidak ada diff."}
+            import httpx
+            async with httpx.AsyncClient(timeout=120) as client:
+                r2 = await client.post("http://localhost:20128/v1/chat/completions",
+                    json={"model": model,
+                          "messages": [{"role": "system", "content": "You are a senior code reviewer. Review the diff. Point out bugs, security issues, suggest improvements."},
+                                       {"role": "user", "content": f"Review:\n\n{r.stdout[:4000]}"}],
+                          "max_tokens": 1500})
+                if r2.status_code == 200:
+                    return {"type": "text", "message": f"## 🔍 Review\n\n{r2.json()['choices'][0]['message']['content']}"}
+            return {"type": "text", "message": "❌ Review failed."}
+        except Exception as e:
+            return {"type": "text", "message": f"❌ {e}"}
+
+    if cmd == "init":
+        try:
+            wp = _P(workspace)
+            env = wp / ".env.example"
+            if not env.exists():
+                env.write_text(f"LLM_URL=http://localhost:20128/v1/chat/completions\nLLM_API_KEY=your-key\nASTRIX_WORKSPACE={workspace}\n")
+            gi = wp / ".gitignore"
+            if not gi.exists():
+                gi.write_text("venv/\n__pycache__/\n*.pyc\n.env\nlogs/\n")
+            return {"type": "text", "message": f"✅ Workspace initialized:\n- `.env.example`\n- `.gitignore`\n\nPath: `{workspace}`"}
+        except Exception as e:
+            return {"type": "text", "message": f"❌ {e}"}
+
+    if cmd == "retry":
+        return {"type": "text", "message": "🔄 Retrying...", "action": "retry"}
+
+    return {"type": "text", "message": f"❌ Unknown: `/{cmd}`. Ketik `/help`."}
+
 
 if __name__ == "__main__":
     import uvicorn

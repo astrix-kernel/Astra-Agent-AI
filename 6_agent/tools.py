@@ -6,6 +6,7 @@ from web_tools import web_search, browse_url
 
 import shutil, subprocess, time
 from pathlib import Path
+import config
 from config import (
     ASTRIX_ROOT, TRASH_DIR, LOG_FILE, ALLOWED_COMMANDS,
     SELF_ROOT, SELF_EDIT_WHITELIST, SELF_EDIT_BLOCK,
@@ -40,9 +41,9 @@ def safe_path(path):
         path = "."
     if path.startswith("/") or path.startswith("~"):
         raise PermissionError(f"Path absolut tidak diizinkan: {path}")
-    full = (ASTRIX_ROOT / path).resolve()
+    full = (config.WORKSPACE / path).resolve()
     try:
-        full.relative_to(ASTRIX_ROOT.resolve())
+        full.relative_to(config.WORKSPACE.resolve())
     except ValueError:
         raise PermissionError(f"Path keluar sandbox: {path}")
     return full
@@ -53,7 +54,7 @@ def _verify_syntax(path_obj):
         return True, "no verifier"
     cmd = VERIFY_COMPILER[ext] + [str(path_obj)]
     try:
-        r = subprocess.run(cmd, cwd=ASTRIX_ROOT, capture_output=True, text=True, timeout=30)
+        r = subprocess.run(cmd, cwd=str(config.WORKSPACE), capture_output=True, text=True, timeout=30)
         if r.returncode == 0:
             return True, "syntax OK"
         return False, (r.stderr or r.stdout)[:500]
@@ -225,7 +226,7 @@ def run_command(cmd=None, command=None):
     if parts[0] not in ALLOWED_COMMANDS:
         return f"ERROR: '{parts[0]}' tidak diizinkan"
     try:
-        r = subprocess.run(cmd, shell=True, cwd=ASTRIX_ROOT,
+        r = subprocess.run(cmd, shell=True, cwd=str(config.WORKSPACE),
                            capture_output=True, text=True, timeout=60)
         return f"exit={r.returncode}\n{(r.stdout+r.stderr)[:MAX_TOOL_RESULT_CHARS]}"
     except subprocess.TimeoutExpired:
@@ -237,7 +238,7 @@ def build_project(target="build", jobs=4, timeout=180):
 
     cmd = f"make {target} -j{jobs}"
     try:
-        r = subprocess.run(cmd, shell=True, cwd=ASTRIX_ROOT,
+        r = subprocess.run(cmd, shell=True, cwd=str(config.WORKSPACE),
                            capture_output=True, text=True, timeout=timeout)
         out = (r.stdout + r.stderr)
 
