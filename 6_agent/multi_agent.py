@@ -951,6 +951,53 @@ CRITICAL RULES:
 5. For build: "Create CMakeLists.txt" + "Configure build" + "Compile" + "Test"
 6. NEVER echo the original goal as one task
 
+🚨 ANALYSIS-FIRST PROTOCOL (INI CARA LU MIKIR):
+
+Phase A — DEEP ANALYSIS (lakukan dulu SEBELUM bikin task):
+1. Baca 15-19 file "files_to_read_first" yang dikasih. Jangan skip.
+2. Untuk tiap file, catat MENTAL NOTE:
+   - Modul apa yang ada
+   - Fungsi apa yang dideklarasi vs yang diimplementasi
+   - Ada stub kosong? TODO? build broken?
+3. Cross-reference dengan GOAL user:
+   - Apa yang user minta vs apa yang SUDAH ada
+4. Bikin GAP LIST (mental atau di reasoning):
+   - File apa yang MISSING
+   - File apa yang ada tapi KOSONG/stub
+   - Bagian mana BUILD-nya rusak
+   - Kode mana yang DEAD (nggak dipanggil)
+5. STOP analisis HANYA ketika lu bisa jawab 3 pertanyaan ini:
+   "Apa yang EXIST? Apa yang MISSING? Apa yang BROKEN?"
+
+Phase B — PLAN (baru setelah Phase A):
+Generate task yang ADDRESS GAP, bukan duplikat yang udah ada.
+Label task dengan TYPE prefix (WAJIB):
+  [FIX]      = perbaiki build error, bug, import rusak
+  [ADD]      = bikin file BARU yang belum ada
+  [UPDATE]   = edit file EXISTING (tambah fungsi, fix logika)
+  [DELETE]   = hapus kode mati/buggy
+  [REFACTOR] = restructure tanpa ubah behavior
+  [BUILD]    = jalankan make/cmake/test untuk verifikasi
+
+TASK ORDERING (URUTAN PENTING):
+1. [FIX] build error DULU (percuma nambah file kalau build rusak)
+2. [ADD] file missing yang dibutuhkan modul lain
+3. [UPDATE] file existing yang butuh fungsi baru
+4. [DELETE] kode mati (paling akhir, setelah semua jalan)
+5. [BUILD] setiap 3-5 task (catch regression early)
+
+EXAMPLE gap-based plan:
+Goal: "lanjutkan build engine X di src/x/"
+Gap list: src/x/core.c stub kosong, Makefile belum include x, fungsi x_init() dideklarasi tapi belum ada implementasi.
+Plan:
+  [FIX] Build: jalankan make, catat error
+  [FIX] src/x/core.c baris 45: fix syntax error
+  [UPDATE] src/x/core.c: implement x_init() sesuai header
+  [UPDATE] Makefile: tambahkan src/x/core.c ke OBJS
+  [BUILD] Verifikasi make sukses
+  [ADD] src/x/render.c — file baru untuk render pipeline
+  [BUILD] Verifikasi
+
 CRITICAL RULES FOR MASSIVE GOALS (GENERIC):
 
 🚨 EXTEND EXISTING, DO NOT REPLACE:
@@ -1102,6 +1149,10 @@ If a task or command fails, DO NOT give up.
 - git_status(): git status short
 - git_diff(path=""): git diff
 
+
+- multi_edit(edits): batch replace. edits=[{"path":"a.c","old":"x","new":"y"},...]
+- analyze_workspace(keyword, max_files=15): cari file by keyword, baca preview (one-shot analysis)
+
 """
     coder_instructions = """
     [CODER MODE ACTIVE - HUMAN-LIKE REPORTER]
@@ -1176,6 +1227,37 @@ Context dari task sebelumnya:
 {AVAILABLE_TOOLS}
 
 INSTRUKSI KERAS:
+
+🚨 READ-BEFORE-WRITE (WAJIB):
+Sebelum edit apa pun, jawab 3 pertanyaan:
+  1. Udah baca file target? Kalau belum → `read_file` dulu
+  2. Udah cek file-nya ada? Kalau belum → `find_files`/`list_dir` dulu
+  3. Udah tau include/import yang dibutuhin? Kalau belum → `search_text` dulu
+
+🚨 READINESS SIGNAL (kapan BERHENTI baca, MULAI nulis):
+✅ Udah baca ≥3 file terkait → cukup konteks
+✅ Udah bisa list fungsi/class yang ada → cukup konteks
+✅ Udah tau file mana yang harus diedit → cukup konteks
+→ SAAT INI, STOP baca. LANGSUNG pake `write_file`/`multi_write`/`replace_text`.
+
+Kalau udah 3 file dibaca tapi masih nanya-nanya → lu OVERTHINKING. Mulai aksi.
+
+🚨 ACTION BATCHING (irit token):
+- Bikin 2+ file terkait? → `multi_write` (bukan `write_file` × N)
+- Edit 3+ spot serupa? → loop `replace_text` (bukan rewrite file penuh)
+- Hapus blok kode? → `delete_lines` dengan range exact
+
+🚨 DELETE CODE (kalau perlu bersihin):
+- Fungsi nggak dipanggil? → `search_text` dulu (kalau 0 caller = aman hapus)
+- Include/import nggak kepake? → hapus
+- Kode commented-out lama? → hapus
+- Duplikat definisi? → hapus salah satu
+
+🚨 AFTER EVERY 3-5 EDITS:
+- `run_command("make")` atau build command → verify nggak ada yang rusak
+- Kalau build gagal → FIX BUILD dulu sebelum lanjut
+
+
 1. JIKA TUGASNYA "Buat file" (file baru) dan file tersebut BELUM ADA, LANGSUNG pakai `write_file`. DILARANG nge-ls atau baca file yang belum ada!
 2. JIKA TUGASNYA "Update file" (file sudah ada), BARU kamu wajib pakai `read_file` dulu sebelum edit.
 3. Kalau butuh ngecek error build, pakai `run_command` (misal: `make`).

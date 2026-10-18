@@ -857,6 +857,78 @@ def git_diff(path=""):
 
 
 # ============ TOOLS DICT (dipindah ke akhir agar fungsi terdefinisi dulu) ============
+# ============ NEW TOOLS (moved before TOOLS dict) ============
+
+def multi_edit(edits):
+    """Batch replace_text. edits = [{"path": "...", "old": "...", "new": "..."}, ...]"""
+    if not isinstance(edits, list):
+        return "ERROR: edits harus list of {path, old, new}"
+    results = []
+    for e in edits:
+        if not isinstance(e, dict):
+            results.append("SKIP: bukan dict")
+            continue
+        pth = e.get("path", "")
+        old = e.get("old", "")
+        new = e.get("new", "")
+        if not pth or not old:
+            results.append(f"SKIP: {pth} - path/old kosong")
+            continue
+        try:
+            r = replace_text(pth, old, new)
+            results.append(f"{pth}: {r[:100]}")
+        except Exception as ex:
+            results.append(f"{pth}: ERROR {ex}")
+    return "\n".join(results)
+
+
+def analyze_workspace(keyword, max_files=15, preview_lines=30):
+    """Cari file by keyword, baca preview. Return struktur ringkas."""
+    import os as _os
+    from pathlib import Path as _P
+    ws = _P(str(config.WORKSPACE))
+    if not ws.exists():
+        return f"ERROR: workspace {ws} tidak ada"
+
+    # Cari dir yang match keyword
+    matches = []
+    for _root, _dirs, _fs in _os.walk(str(ws)):
+        rl = _root.lower()
+        if any(x in rl for x in ['/.git','/node_modules','/venv','/__pycache__']):
+            continue
+        for _fn in _fs:
+            if _fn.endswith(('.c','.h','.cpp','.S','.asm','.rs','.go','.py','.js','.ts','.mk','.make')) or _fn in ('Makefile','CMakeLists.txt'):
+                if keyword.lower() in _root.lower() or keyword.lower() in _fn.lower():
+                    rel = _os.path.relpath(_os.path.join(_root, _fn), str(ws))
+                    matches.append(rel)
+            if len(matches) >= max_files:
+                break
+        if len(matches) >= max_files:
+            break
+
+    if not matches:
+        return f"OK: tidak ada file match '{keyword}'"
+
+    out = [f"Found {len(matches)} files matching '{keyword}':\n"]
+    for rel in matches[:max_files]:
+        out.append(f"\n{'='*60}\n{rel}\n{'='*60}")
+        try:
+            p = ws / rel
+            lines = p.read_text(errors='replace').split('\n')
+            # Preview: 10 baris awal + signature functions
+            preview = lines[:preview_lines]
+            out.append("\n".join(preview))
+            # Cari fungsi
+            funcs = [l.strip() for l in lines if ('def ' in l or 'int ' in l or 'void ' in l or 'fn ' in l) and '(' in l][:5]
+            if funcs:
+                out.append(f"\n... functions: {', '.join(f[:50] for f in funcs)}")
+        except Exception as e:
+            out.append(f"ERROR reading: {e}")
+    return "\n".join(out)
+
+# ============ END NEW TOOLS ============
+
+
 TOOLS = {
     "web_search": web_search,
     "browse_url": browse_url,
@@ -893,6 +965,8 @@ TOOLS = {
     "copy_file": copy_file,
     "git_status": git_status,
     "git_diff": git_diff,
+    "multi_edit": multi_edit,
+    "analyze_workspace": analyze_workspace,
 }
 
 # === Browser tools attach (HARUS setelah TOOLS didefinisikan) ===
