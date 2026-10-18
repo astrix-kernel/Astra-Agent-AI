@@ -293,7 +293,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let _currentAbortController = null;
         async function handleSend() {
     // JIKA CODER MODE AKTIF, LEMPAR KE SISTEM AGENT (MULTI-AGENT) YANG PUNYA TOOLS
-    if (window.isCoderModeActive) {
+    const _am = JSON.parse(localStorage.getItem('astrix_settings') || '{}').activeAgentMode || 'chat';
+    const _needsTools = ['coder', 'multi_agent', 'autonomous'].includes(_am);
+    if (_needsTools) {
+        console.log('[ROUTING] Using /api/goal for agent mode:', _am);
         const input = document.getElementById('input');
         const text = input.value.trim();
         if (!text) return;
@@ -324,24 +327,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     goal: text,
                     max_tasks: 10,
-                    model: s.modelOverride || (selectedModel ? selectedModel.id : ''),
+                    model: (selectedModel && selectedModel.id) ? selectedModel.id : (s.modelOverride || ''),
                     coder_mode: true
                 })
             });
-            const data = await res.json();
-            const textEl = document.getElementById(`${bId}-text`);
+            if (!res.ok) throw new Error('Server Error ' + res.status);
+            if (!res.body) throw new Error('No response body');
             
-            if (data.error) {
-                textEl.innerHTML = `<span class="text-red-400">❌ Error: ${data.error}</span>`;
-            } else {
-                let out = '<span class="text-green-400 font-bold">✅ Tugas Selesai!</span><br><br>';
-                if (data.tasks) {
-                    out += '<b>Rencana:</b><br>' + data.tasks.map(t => `- ${t}`).join('<br>') + '<br><br>';
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            const textEl = document.getElementById(`${bId}-text`);
+            textEl.innerHTML = '';
+            let hasOutput = false;
+            
+            while (true) {
+                const chunk = await reader.read();
+                if (chunk.done) break;
+                buffer += decoder.decode(chunk.value, {stream: true});
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const evt = JSON.parse(line.slice(6));
+                        
+                        if (evt.type === 'thinking' || evt.type === 'plan' || evt.type === 'task') {
+                            if (!hasOutput) {
+                                textEl.innerHTML = '<span class="text-gray-400 italic">' + evt.message + '<span class="animate-pulse">...</span></span>';
+                            } else {
+                                textEl.innerHTML += '<div class="text-gray-400 italic text-xs mt-1">' + evt.message + '</div>';
+                            }
+                        } else if (evt.type === 'add') {
+                            textEl.innerHTML += '<div class="text-green-400 text-xs mt-1">' + evt.message + '</div>';
+                            hasOutput = true;
+                        } else if (evt.type === 'read') {
+                            textEl.innerHTML += '<div class="text-blue-400 text-xs mt-1">' + evt.message + '</div>';
+                            hasOutput = true;
+                        } else if (evt.type === 'run') {
+                            textEl.innerHTML += '<div class="text-yellow-400 text-xs mt-1">' + evt.message + '</div>';
+                            hasOutput = true;
+                        } else if (evt.type === 'list') {
+                            textEl.innerHTML += '<div class="text-purple-400 text-xs mt-1">' + evt.message + '</div>';
+                            hasOutput = true;
+                        } else if (evt.type === 'done_tool') {
+                            textEl.innerHTML += '<div class="text-gray-500 text-xs mt-1">' + evt.message + '</div>';
+                        } else if (evt.type === 'final') {
+                            const r = evt.result || {};
+                            let out = '<span class="text-green-400 font-bold">✅ Tugas Selesai!</span><br><br>';
+                            if (r.tasks) out += '<b>Rencana:</b><br>' + r.tasks.map(t => '- ' + t).join('<br>') + '<br><br>';
+                            if (r.results) out += '<b>Hasil:</b><br>' + r.results.join('<br><br>');
+                            textEl.innerHTML = out;
+                        } else if (evt.type === 'error') {
+                            textEl.innerHTML = '<span class="text-red-400">❌ Error: ' + evt.message + '</span>';
+                        }
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    } catch(parseErr) { console.error('SSE parse error:', parseErr, line); }
                 }
-                if (data.results) {
-                    out += '<b>Hasil:</b><br>' + data.results.join('<br><br>');
-                }
-                textEl.innerHTML = out;
             }
         } catch(e) {
             document.getElementById(`${bId}-text`).innerHTML = `<span class="text-red-400">❌ Gagal konek ke Agent: ${e.message}</span>`;
@@ -419,7 +462,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.innerHTML = `<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-blue-600 shadow-lg"><i class="ph ph-sparkle text-white"></i></div><div class="max-w-[85%] text-sm text-gray-200 pt-1" id="${bId}-text"><span class="text-gray-400 italic" id="${bId}-thinking">${_thinkS}<span class="animate-pulse">...</span></span></div>`;
                 chatMessages.appendChild(div);
 
-                const res = await fetch('/api/chat/stream', { 
+                const _debugMode = JSON.parse(localStorage.getItem('astrix_settings') || '{}').activeAgentMode || 'chat';
+                    console.log('[CHAT] Sending active_agent_mode:', _debugMode);
+                    // Inject active_agent_mode from settings
+                    try {
+                        const _s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+                        reqBody.active_agent_mode = _s.activeAgentMode || 'chat';
+                        console.log('[CHAT] active_agent_mode:', reqBody.active_agent_mode);
+                    } catch(e) { console.error('Failed to read settings:', e); }
+                    const res = await fetch('/api/chat/stream', { 
                     method: 'POST', signal: (_currentAbortController = new AbortController()).signal, 
                     headers: {
                         'Content-Type': 'application/json',
@@ -621,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // START
-        // [REMOVED] boot settings — handled by settings.js
+        // [REMOVED] boot settings — handled by settings.js?v=999
         // [REMOVED]
 
         loadModels();
@@ -923,10 +974,10 @@ ${inputEl.value}`;
     });
     </script>
 
-    <script src="/static/settings.js"></script>
+    <script src="/static/settings.js?v=999"></script>
 
     <script>
-    // SAVE HANDLER — call settings.js collectSettings
+    // SAVE HANDLER — call settings.js?v=999 collectSettings
     window.addEventListener('load', () => {
         setTimeout(() => {
             const sb = document.getElementById('saveSettingsBtn');
@@ -1113,51 +1164,7 @@ document.addEventListener('DOMContentLoaded', forceAstra);
 </script>
 
 
-<script>
-window.isCoderModeActive = false;
 
-function toggleCoderMode() {
-    window.isCoderModeActive = !window.isCoderModeActive;
-    const btn = document.getElementById('coderModeToggle');
-    if (window.isCoderModeActive) {
-        btn.innerHTML = '🚀 Coder Mode: ON';
-        btn.classList.replace('text-gray-400', 'text-green-400');
-        btn.classList.add('bg-green-500/20', 'border-green-500/50');
-    } else {
-        btn.innerHTML = '🧠 Coder Mode: OFF';
-        btn.classList.replace('text-green-400', 'text-gray-400');
-        btn.classList.remove('bg-green-500/20', 'border-green-500/50');
-    }
-}
-
-// Intercept API calls to /api/goal to inject coder_mode flag
-
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        const url = args[0];
-        const options = args[1];
-        
-        if (typeof url === 'string' && url.includes('/api/goal') && options && options.body) {
-            try {
-                let body = JSON.parse(options.body);
-                body.coder_mode = isCoderModeActive;
-                options.body = JSON.stringify(body);
-            } catch(e) {}
-        }
-        return originalFetch.apply(this, args);
-    };
-});
-</script>
-
-
-    <div style="position: fixed; top: 16px; right: 16px; z-index: 9999;">
-        <button id="coderModeToggle" onclick="toggleCoderMode()" class="text-xs font-bold text-gray-400 hover:text-white px-4 py-2 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 shadow-lg transition">
-            🧠 Coder Mode: OFF
-        </button>
-    </div>
     
 <script>
 window.renderModelMenu = async function() {
@@ -1433,7 +1440,28 @@ window.openModelPicker = async function() {
 </script>
 
 
-        </body>
+        
+<script>
+// === AUTO-SYNC: Dropdown -> localStorage ===
+(function() {
+    const _orig = window.updateModelUI;
+    if (typeof _orig === 'function') {
+        window.updateModelUI = function() {
+            _orig.apply(this, arguments);
+            try {
+                if (typeof selectedModel !== 'undefined' && selectedModel && selectedModel.id) {
+                    const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+                    s.modelOverride = selectedModel.id;
+                    localStorage.setItem('astrix_settings', JSON.stringify(s));
+                    console.log('[SYNC] Dropdown -> Settings:', selectedModel.id);
+                }
+            } catch(e) { console.error('[SYNC] Failed:', e); }
+        };
+    }
+})();
+</script>
+
+</body>
 
 </html>
 

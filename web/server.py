@@ -4,6 +4,7 @@ try:
 except ImportError:
     tts = None  # TTS optional: not installed on this machine
 
+import json as _json
 from kura_tts import router as kura_router
 from terminal_api import router as terminal_router
 from coder_api import router as coder_router
@@ -184,6 +185,9 @@ class ChatReq(BaseModel):
     api_key: str = ""
     model_override: str = ""
     response_style: str = "default"
+    active_agent_mode: str = "chat"
+
+
 
 
 class GoalReq(BaseModel):
@@ -244,29 +248,8 @@ async def status():
     }
 
 
-class ChatReq(BaseModel):
-    message: str
-    focus: str = "coding"
-    keep_context: bool = True
-    web_search: bool = False
-    system_prompt: str = "You are a helpful AI assistant."
-    language: str = "id"
-    temperature: float = 0.7
-    top_p: float = 0.9
-    top_k: int = 40
-    max_tokens: int = 4096
-    freq_pen: float = 0.0
-    pres_pen: float = 0.0
-    compress_history: bool = False
-    compress_limit: int = 10
-    allow_code_exec: bool = True
-    max_tool_rounds: int = 8
-    workspace: str = ""
-    provider: str = "omniroute"
-    base_url: str = ""
-    api_key: str = ""
-    model_override: str = ""
-    response_style: str = "default"
+
+
 
     focus: str = "chat" 
 
@@ -327,18 +310,56 @@ from fastapi.responses import StreamingResponse
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatReq):
+    # --- INTERCEPT /goal COMMAND ---
+    if req.message.strip().startswith("/goal "):
+        from multi_agent import run_multi_agent
+        task = req.message.strip().replace("/goal ", "", 1)
+        print(f"[GOAL] Executing: {task}")
+        
+        async def goal_gen():
+            try:
+                result = run_multi_agent(task, coder_mode=True)
+                yield f"data: {_json.dumps({'type': 'chunk', 'text': result})}\n\n"
+            except Exception as e:
+                yield f"data: {_json.dumps({'type': 'chunk', 'text': '❌ Error: ' + str(e)})}\n\n"
+            yield f"data: {_json.dumps({'type': 'done'})}\n\n"
+        
+        return StreamingResponse(goal_gen(), media_type="text/event-stream")
+    # --- END /goal INTERCEPT ---
     import chat_store, json as _json
     from chat import _stream_api, _build_messages
     from config import LLM_URL, LLM_API_KEY
     
     session = chat_store.get_active_session()
     sid = session["id"]
+    
+    # --- SMART MODE DETECTION ---
+    coding_keywords = ['bikin file', 'buat file', 'coding', 'kode', 'script', 'program', 
+                       'fix bug', 'error', 'python', 'javascript', 'c++', 'install', 
+                       'compile', 'build', 'git', 'function', 'class', 'variabel', 'loop']
+    msg_lower = req.message.lower()
+    is_coding_request = any(kw in msg_lower for kw in coding_keywords)
+    
+    forced_reminder = ""
+    if is_coding_request and req.active_agent_mode != 'coder':
+        lang = req.language or 'id'
+        if lang == 'en':
+            forced_reminder = "💡 **Tip:** For full coding capabilities, switch to **Coder** mode in Settings > Persona & Prompt.\n\n"
+        else:
+            forced_reminder = "💡 **Tips:** Buat akses coding penuh, ganti ke mode **Coder** di Settings > Persona & Prompt ya!\n\n"
+        print(f"[SMART MODE] Coding request detected in '{req.active_agent_mode}' mode. Will prepend reminder.")
+    # --- END SMART MODE DETECTION ---
+
     chat_store.append_message(sid, "user", req.message)
     history = [{"role": m["role"], "content": m["content"]} for m in session["messages"][:-1]] if getattr(req, 'keep_context', True) else []
     
     print(f"\n[CHAT-STREAM] msg={req.message[:30]!r} base_url={req.base_url!r} model={req.model_override!r}", flush=True)
     
     def sync_gen():
+        # Prepend smart mode reminder if applicable
+        if forced_reminder:
+            yield f"data: {_json.dumps({'type': 'chunk', 'text': forced_reminder})}\n\n"
+
         yield f"data: {_json.dumps({'type': 'chunk', 'text': '🧪 '})}\n\n"
         
         try:
@@ -511,37 +532,48 @@ def _do_chat(msg, focus, web_search=False):
 
 
 @app.post("/api/goal")
-async def goal(req: dict):
-    from multi_agent import run_multi_agent
+async def goal(req: GoalReq):
     import asyncio
+    import threading
+    from queue import Queue, Empty
     
-    goal_text = req.get("goal", "").strip()
-    if not goal_text:
-        return {"error": "Goal kosong"}
-        
-    max_tasks = req.get("max_tasks", 5)
-    coder_mode = req.get("coder_mode", False)
-    from models import MODELS
-    raw_model = req.get("model", "")
-    model = MODELS.get(raw_model, {}).get("id", raw_model)
+    status_queue = Queue()
     
-    loop = asyncio.get_event_loop()
-    logs = []
-    def on_log(msg):
-        logs.append(msg)
-        print(f"[MULTI-API] {msg}", flush=True)
-        
-    try:
-        result = await loop.run_in_executor(
-            None, 
-            lambda: run_multi_agent(goal_text, on_log=on_log, max_tasks=max_tasks, model=model, coder_mode=coder_mode)
-        )
-        result["logs"] = logs
-        return result
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return {"error": str(e), "logs": logs}
+    def status_cb(event_type: str, message: str):
+        status_queue.put({"type": event_type, "message": message})
+    
+    def run_agent():
+        try:
+            from multi_agent import run_multi_agent
+            result = run_multi_agent(
+                req.goal,
+                model=getattr(req, 'model', None),
+                coder_mode=getattr(req, 'coder_mode', True),
+                status_callback=status_cb
+            )
+            status_queue.put({"type": "final", "result": result})
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            status_queue.put({"type": "error", "message": str(e)})
+        finally:
+            status_queue.put({"type": "end"})
+    
+    threading.Thread(target=run_agent, daemon=True).start()
+    
+    async def event_stream():
+        while True:
+            try:
+                event = status_queue.get(timeout=0.1)
+                yield f"data: {_json.dumps(event)}\n\n"
+                if event["type"] == "end":
+                    break
+            except Empty:
+                await asyncio.sleep(0.1)
+                continue
+    
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
 
 @app.get("/api/mode")
 async def get_mode_api():

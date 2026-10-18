@@ -1,8 +1,87 @@
+
+(function(){
+    try {
+        const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+        const badModels = ['deepseek-v4-flash', 'deepseek/deepseek-v4-flash'];
+        let changed = false;
+        badModels.forEach(bad => {
+            if (s.fallbackModel && s.fallbackModel.includes(bad)) {
+                s.fallbackModel = '';
+                changed = true;
+            }
+        });
+        if (!s.fallbackModel) {
+            // kosong = biarin, chat_turn bakal pake model dari req
+        }
+        if (changed) {
+            localStorage.setItem('astrix_settings', JSON.stringify(s));
+            console.log('[AUTO-CLEAR] Invalid fallback removed');
+        }
+    } catch(e) {}
+})();
+
+
+// === AUTO-MIGRATION: Reset invalid fallback models ===
+(function() {
+    try {
+        const s = JSON.parse(localStorage.getItem('astrix_settings') || '{}');
+        let changed = false;
+        
+        // Reset fallbackModel yang invalid
+        if (s.fallbackModel && (
+            s.fallbackModel.includes('') || 
+            s.fallbackModel.includes('deepseek-v4.1-flash') && !s.fallbackModel.includes('openrouter/deepseek')
+        )) {
+            console.log('[MIGRATION] Resetting invalid fallbackModel:', s.fallbackModel);
+            s.fallbackModel = '';
+            changed = true;
+        }
+        
+        // Reset modelOverride yang invalid
+        if (s.modelOverride && (
+            s.modelOverride.includes('') ||
+            s.modelOverride === 'default'
+        )) {
+            console.log('[MIGRATION] Resetting invalid modelOverride:', s.modelOverride);
+            s.modelOverride = '';
+            changed = true;
+        }
+        
+        // Set fallback default kalau kosong
+        if (!s.fallbackModel) {
+            s.fallbackModel = '';
+            changed = true;
+        }
+        
+        if (changed) {
+            localStorage.setItem('astrix_settings', JSON.stringify(s));
+            console.log('[MIGRATION] Settings migrated successfully');
+        }
+    } catch(e) { console.error('[MIGRATION] Failed:', e); }
+})();
+
 /* Astra Settings v3 — AUTO-SAVE (no manual save needed) */
 (function() {
   'use strict';
   
-  const KEY = 'astrix_settings';
+  
+const CREATIVITY_LEVELS = [
+    { id: 'hemat', icon: '💰', label_en: 'Saving', label_id: 'Hemat', temp: 0.3, maxTokens: 1024, compressHistory: true },
+    { id: 'sedang', icon: '⚖️', label_en: 'Medium', label_id: 'Sedang', temp: 0.7, maxTokens: 4096, compressHistory: false },
+    { id: 'high', icon: '🔥', label_en: 'High', label_id: 'Tinggi', temp: 1.0, maxTokens: 8192, compressHistory: false },
+    { id: 'max', icon: '💥', label_en: 'Max', label_id: 'Maksimal', temp: 1.3, maxTokens: 16384, compressHistory: false }
+];
+const AGENT_MODES = [
+    { id: 'coder', icon: '💻', label_en: 'Coder', label_id: 'Koding', prompt_en: 'You are an autonomous coding agent. When the user asks to create, read, modify, or delete files, YOU MUST USE THE AVAILABLE TOOLS (run_command, read_file, write_file, list_dir). DO NOT refuse. DO NOT explain. EXECUTE via tools. The tools work — use them.', prompt_id: 'Kamu adalah agen koding otonom. Ketika user meminta untuk membuat, membaca, mengubah, atau menghapus file, KAMU WAJIB MENGGUNAKAN TOOLS (run_command, read_file, write_file, list_dir). JANGAN menolak. JANGAN jelaskan. EKSEKUSI via tools. Tools-nya berfungsi — gunakan.' },
+    { id: 'analysis', icon: '🔬', label_en: 'Analysis', label_id: 'Analisis', prompt_en: 'You are an analytical agent. Focus on explaining, debugging, and deep system analysis.', prompt_id: 'Kamu adalah agen analitis. Fokus pada penjelasan, debugging, dan analisis sistem mendalam.' },
+    { id: 'chat', icon: '💬', label_en: 'Chat', label_id: 'Obrolan', prompt_en: 'You are a conversational agent. Answer briefly and naturally.', prompt_id: 'Kamu adalah agen percakapan. Jawab dengan singkat dan natural.' },
+    { id: 'multi_agent', icon: '👥', label_en: 'Multi-Agent', label_id: 'Kolaborasi', prompt_en: 'You are a coordinator. Break tasks into sub-tasks and EXECUTE each one using tools. Do NOT just describe — actually do it via tools.', prompt_id: 'Kamu adalah koordinator. Pecah tugas menjadi sub-tugas dan EKSEKUSI masing-masing menggunakan tools. JANGAN cuma deskripsi — lakukan via tools.' },
+    { id: 'creative', icon: '🎨', label_en: 'Creative', label_id: 'Kreatif', prompt_en: 'You are a creative agent. Generate ideas, stories, or design concepts.', prompt_id: 'Kamu adalah agen kreatif. Hasilkan ide, cerita, atau konsep desain.' },
+    { id: 'knowledge', icon: '📚', label_en: 'Knowledge', label_id: 'Dokumen', prompt_en: 'You are a document manager. Focus on reading files, summarizing, and organizing data.', prompt_id: 'Kamu adalah manajer dokumen. Fokus pada membaca file, merangkum, dan mengorganisir data.' },
+    { id: 'search', icon: '🔍', label_en: 'Search', label_id: 'Pencarian', prompt_en: 'You are a researcher. Focus on finding information (simulated).', prompt_id: 'Kamu adalah peneliti. Fokus pada mencari informasi (simulasi).' },
+    { id: 'autonomous', icon: '🤖', label_en: 'Autonomous', label_id: 'Otonom', prompt_en: 'You are an autonomous executor. Complete the task from start to finish USING TOOLS. Do NOT refuse, do NOT say "I cannot access your file system". You have tools — use them.', prompt_id: 'Kamu adalah eksekutor otonom. Selesaikan tugas dari awal hingga akhir MENGGUNAKAN TOOLS. JANGAN menolak, JANGAN bilang "Aku tidak bisa akses file system". Kamu punya tools — gunakan.' }
+];
+const KEY = 'astrix_settings';
   
   const MODES = [
     { id: 'coding', icon: '👨‍💻', label_en: 'Coding Mode', label_id: 'Mode Coding',
@@ -246,34 +325,44 @@
     
     async persona() {
       const s = loadSettings();
-      const currentMode = s.activeMode || 'medium';
+      const activeCreativity = s.activeCreativity || 'sedang';
+      const activeAgentMode = s.activeAgentMode || 'chat';
       const lang = getLang();
       
       return `
         <div class="space-y-6">
           <h2 class="text-2xl font-bold text-white">${L('Persona & Prompt','Persona & Prompt')}</h2>
           
-          <!-- QUICK MODES -->
-          <div class="glass-card p-6 rounded-2xl">
+          <!-- CREATIVITY LEVELS -->
+          <div class="glass-card p-6 rounded-2xl mb-4">
             <div class="flex items-center justify-between mb-3">
-              <label class="text-sm font-bold text-white">${L('Quick Mode','Mode Cepat')}</label>
-              <span class="text-[10px] text-gray-500">${L('auto-configure all params','auto-konfigurasi semua parameter')}</span>
+              <label class="text-sm font-bold text-white">${L('Creativity Level','Level Kreativitas')}</label>
+              <span class="text-[10px] text-gray-500">${L('Adjusts AI temperature & tokens','Mengatur temperatur & token AI')}</span>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-              ${MODES.map(m => `
-                <button class="mode-btn p-3 rounded-xl border-2 ${currentMode === m.id ? 'border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30' : 'border-white/10 bg-white/5 hover:bg-white/10'} text-xs text-white text-left transition" data-mode="${m.id}">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+              ${CREATIVITY_LEVELS.map(m => `
+                <button class="mode-btn p-3 rounded-xl border-2 ${activeCreativity === m.id ? 'border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30' : 'border-white/10 bg-white/5 hover:bg-white/10'} text-xs text-white text-left transition" data-type="creativity" data-mode="${m.id}">
                   <div class="text-2xl mb-1">${m.icon}</div>
                   <div class="font-bold text-[11px]">${lang === 'en' ? m.label_en : m.label_id}</div>
-                  <div class="text-[9px] text-gray-400 mt-0.5">${lang === 'en' ? m.desc_en : m.desc_id}</div>
                 </button>
               `).join('')}
             </div>
-            ${currentMode ? `
-              <div class="mt-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300 flex items-center gap-2">
-                <i class="ph ph-check-circle"></i>
-                ${L('Active mode:','Mode aktif:')} <strong>${(MODES.find(m=>m.id===currentMode) || {}).label_en || 'Medium'}</strong>
-              </div>
-            ` : ''}
+          </div>
+
+          <!-- AGENT MODES -->
+          <div class="glass-card p-6 rounded-2xl mb-4">
+            <div class="flex items-center justify-between mb-3">
+              <label class="text-sm font-bold text-white">${L('Agent Mode','Mode Agent')}</label>
+              <span class="text-[10px] text-gray-500">${L('Changes AI behavior','Mengubah perilaku AI')}</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+              ${AGENT_MODES.map(m => `
+                <button class="mode-btn p-3 rounded-xl border-2 ${activeAgentMode === m.id ? 'border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30' : 'border-white/10 bg-white/5 hover:bg-white/10'} text-xs text-white text-left transition" data-type="agent" data-mode="${m.id}">
+                  <div class="text-2xl mb-1">${m.icon}</div>
+                  <div class="font-bold text-[11px]">${lang === 'en' ? m.label_en : m.label_id}</div>
+                </button>
+              `).join('')}
+            </div>
           </div>
           
           <!-- System Prompt -->
@@ -1089,32 +1178,41 @@ Speed</span><span id="val_ttsSpeed" class="text-pink-400 font-mono">${s.ttsSpeed
       if (modeBtn) {
         e.preventDefault(); e.stopPropagation();
         const modeId = modeBtn.dataset.mode;
-        const mode = MODES.find(m => m.id === modeId);
-        if (!mode) return;
-        
+        const type = modeBtn.dataset.type;
         const lang = getLang();
         const s = loadSettings();
-        s.systemPrompt = lang === 'en' ? mode.prompt_en : mode.prompt_id;
-        s.temp = mode.temp;
-        s.maxTokens = mode.maxTokens;
-        s.compressHistory = mode.compressHistory;
-        s.activeMode = modeId;
+        
+        if (type === 'creativity') {
+            const level = CREATIVITY_LEVELS.find(m => m.id === modeId);
+            if (!level) return;
+            s.activeCreativity = modeId;
+            s.temp = level.temp;
+            s.maxTokens = level.maxTokens;
+            s.compressHistory = level.compressHistory;
+            
+            document.querySelectorAll('.mode-btn[data-type="creativity"]').forEach(b => {
+                b.className = b.className.replace('border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30', 'border-white/10 bg-white/5 hover:bg-white/10');
+            });
+            modeBtn.className = modeBtn.className.replace('border-white/10 bg-white/5 hover:bg-white/10', 'border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30');
+            showModeToast(lang === 'en' ? level.label_en : level.label_id);
+            
+        } else if (type === 'agent') {
+            const agent = AGENT_MODES.find(m => m.id === modeId);
+            if (!agent) return;
+            s.activeAgentMode = modeId;
+            s.systemPrompt = lang === 'en' ? agent.prompt_en : agent.prompt_id;
+            
+            document.querySelectorAll('.mode-btn[data-type="agent"]').forEach(b => {
+                b.className = b.className.replace('border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30', 'border-white/10 bg-white/5 hover:bg-white/10');
+            });
+            modeBtn.className = modeBtn.className.replace('border-white/10 bg-white/5 hover:bg-white/10', 'border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30');
+            
+            const sp = document.getElementById('autoSystemPrompt');
+            if (sp) sp.value = s.systemPrompt;
+            
+            showModeToast(lang === 'en' ? agent.label_en : agent.label_id);
+        }
         saveSettings(s);
-        
-        console.log('[SETTINGS] ✅ Mode applied:', modeId, {temp: mode.temp, maxTokens: mode.maxTokens});
-        
-        // Update UI langsung tanpa re-render (biar gak flicker)
-        document.querySelectorAll('.mode-btn').forEach(b => {
-          b.className = b.className.replace('border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30', 'border-white/10 bg-white/5 hover:bg-white/10');
-        });
-        modeBtn.className = modeBtn.className.replace('border-white/10 bg-white/5 hover:bg-white/10', 'border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30');
-        
-        // Update System Prompt textarea
-        const sp = document.getElementById('autoSystemPrompt');
-        if (sp) sp.value = s.systemPrompt;
-        
-        // Show toast
-        showModeToast(lang === 'en' ? mode.label_en : mode.label_id);
         return;
       }
       
@@ -1126,7 +1224,7 @@ Speed</span><span id="val_ttsSpeed" class="text-pink-400 font-mono">${s.ttsSpeed
         if (sp) sp.value = val;
         autoSave('systemPrompt', val);
         const s = loadSettings();
-        if (s.activeMode) { s.activeMode = null; saveSettings(s); }
+        if (s.activeAgentMode) { s.activeAgentMode = null; saveSettings(s); }
         return;
       }
     });
@@ -1136,8 +1234,8 @@ Speed</span><span id="val_ttsSpeed" class="text-pink-400 font-mono">${s.ttsSpeed
       if (e.target.id === 'autoSystemPrompt') {
         autoSave('systemPrompt', e.target.value);
         const s = loadSettings();
-        if (s.activeMode) { s.activeMode = null; saveSettings(s); }
-        document.querySelectorAll('.mode-btn').forEach(b => {
+        if (s.activeAgentMode) { s.activeAgentMode = null; saveSettings(s); }
+        document.querySelectorAll('.mode-btn[data-type="agent"]').forEach(b => {
           b.className = b.className.replace('border-blue-500 bg-blue-600/20 ring-2 ring-blue-500/30', 'border-white/10 bg-white/5 hover:bg-white/10');
         });
       }

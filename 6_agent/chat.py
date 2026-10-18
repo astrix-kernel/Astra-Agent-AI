@@ -104,7 +104,7 @@ def chat_turn_streaming(history, user_msg, focus="chat", on_chunk=None,
         "Content-Type": "application/json",
     }
     payload = {
-        "model": custom_model or "deepseek/deepseek-v4-flash",
+        "model": custom_model or "nvidia/nvidia/nemotron-3-super-120b-a12b",
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -158,7 +158,7 @@ def chat_turn(history, user_msg, focus="chat", max_tool_rounds=None,
         "Content-Type": "application/json",
     }
     payload = {
-        "model": custom_model or "deepseek/deepseek-v4-flash",
+        "model": custom_model or "nvidia/nvidia/nemotron-3-super-120b-a12b",
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,

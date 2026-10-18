@@ -1,11 +1,24 @@
 """Multi-agent orchestration: Planner + Executor."""
 import json
 import re
+
+MODE_PROMPTS = {
+    "coder": "You are an autonomous coding agent. Focus on writing, reading, and fixing code.",
+    "analysis": "You are an analytical agent. Focus on explaining, debugging, and deep system analysis.",
+    "chat": "You are a conversational agent. Answer briefly and naturally.",
+    "multi_agent": "You are a coordinator. Break tasks into sub-tasks and execute them sequentially.",
+    "creative": "You are a creative agent. Generate ideas, stories, or design concepts.",
+    "knowledge": "You are a document manager. Focus on reading files, summarizing, and organizing data.",
+    "search": "You are a researcher. Focus on finding information (simulated).",
+    "autonomous": "You are an autonomous executor. Complete the task from start to finish."
+}
+
 import os
+
 import subprocess
 
 def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max_tasks=5,
-                    base_url=None, api_key=None, model=None, coder_mode=False):
+                    base_url=None, api_key=None, model=None, coder_mode=False, status_callback=None):
     """Plan → Execute → Return results. Support custom API params."""
     
     def log(msg):
@@ -24,13 +37,23 @@ def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max
     log(f"🔌 API: {'custom (' + str(base_url) + ')' if base_url else 'default'}")
     log(f"🧠 Model: {model or 'default'}")
     log("📋 Phase 1: Planning...")
+    if status_callback: status_callback("thinking", "🧠 Thinking... menganalisis tugas")
     
-    planner_prompt = f"""Break down this goal into 2-{max_tasks} atomic tasks.
+    planner_prompt = f"""Break down this goal into 1-{max_tasks} atomic, executable tasks.
 
 GOAL: {goal}
 
-Return ONLY a JSON array of strings. Example:
-["Read Makefile", "Add target foo", "Run make foo"]
+CRITICAL RULES:
+1. Each task must be a SINGLE actionable step (not a repeat of the goal)
+2. For file creation, split into: "Create <file>" + "Write <content> to <file>"
+3. For compilation, add: "Compile <file> with gcc"
+4. NEVER just echo the original goal as one task
+5. Keep tasks specific and testable
+
+Return ONLY a JSON array of strings. Example for "bikin file hello.txt isinya Halo":
+["Create hello.txt", "Write 'Halo' into hello.txt", "Verify hello.txt exists"]
+
+Now generate the tasks for the goal above:
 
 
     [CRITICAL CONTEXT]
@@ -94,6 +117,7 @@ If a task or command fails, DO NOT give up.
         tasks = [goal]
     else:
         log(f"✅ Plan ready: {len(tasks)} tasks")
+    if status_callback: status_callback("plan", f"📋 Rencana: {len(tasks)} langkah")
     
     for i, t in enumerate(tasks, 1):
         log(f"  {i}. {t[:80]}")
@@ -119,6 +143,7 @@ If a task or command fails, DO NOT give up.
 
     for i, task in enumerate(tasks, 1):
         log(f"⚙️ Task {i}/{len(tasks)}: {task[:60]}")
+        if status_callback: status_callback("task", f"⚙️ Task {i}/{len(tasks)}: {task[:50]}")
         
         exec_prompt = f"""Task {i}/{len(tasks)}: {task}
 
@@ -161,6 +186,9 @@ If a task or command fails, DO NOT give up.
                 **base_kwargs
             )
             
+            if not result:
+                log("⚠️ AI tidak memberikan respons (server down / rate limit). Lanjut task berikutnya.")
+                continue
             result_clean = result.strip()
             result_clean = re.sub(r'^```(?:json)?\n', '', result_clean)
             result_clean = re.sub(r'\n```$', '', result_clean)
@@ -173,12 +201,30 @@ If a task or command fails, DO NOT give up.
                     tool_args = tool_call.get("args", {})
                     
                     log(f"🛠️ AI memanggil tool: {tool_name}")
+                    if status_callback:
+                        if tool_name == "write_file":
+                            _path = tool_args.get("path", "?")
+                            status_callback("add", f"➕ Ditambahkan {_path}")
+                        elif tool_name == "read_file":
+                            _path = tool_args.get("path", "?")
+                            status_callback("read", f"📖 Baca {_path}")
+                        elif tool_name == "run_command":
+                            _cmd = tool_args.get("command", "")
+                            if "make" in _cmd.lower():
+                                status_callback("run", f"⚙️ Makefile")
+                            else:
+                                status_callback("run", f"▶️ {_cmd[:60]}")
+                        elif tool_name == "list_dir":
+                            status_callback("list", f"📂 List folder")
+                        else:
+                            status_callback("tool", f"🔧 {tool_name}")
                     
                     from tools import TOOLS
                     
                     if tool_name in TOOLS:
                         tool_result = TOOLS[tool_name](**tool_args)
                         log(f"✅ Tool {tool_name} berhasil: {str(tool_result)[:100]}")
+                        if status_callback: status_callback("done_tool", f"✅ {tool_name}")
                         
                         history.append({"role": "user", "content": exec_prompt})
                         history.append({"role": "assistant", "content": result})
@@ -213,4 +259,24 @@ If a task or command fails, DO NOT give up.
             log(f"❌ Task {i} error: {e}")
     
     log(f"🎉 Complete: {len(results)}/{len(tasks)} tasks")
+    # Sanitize results: remove leaked JSON tool calls
+    import re as _re_sanitize
+    _clean_results = []
+    for _r in results:
+        if not isinstance(_r, str):
+            _clean_results.append(str(_r))
+            continue
+        _clean_lines = []
+        for _line in _r.split('\n'):
+            _stripped = _line.strip()
+            # Skip lines that are pure JSON tool calls
+            if _stripped.startswith('{') and '"tool"' in _stripped and _stripped.endswith('}'):
+                continue
+            _clean_lines.append(_line)
+        _cleaned = '\n'.join(_clean_lines)
+        _cleaned = _re_sanitize.sub(r'\n{3,}', '\n\n', _cleaned).strip()
+        if _cleaned:
+            _clean_results.append(_cleaned)
+    results = _clean_results
+    
     return {"goal": goal, "tasks": tasks, "results": results}
