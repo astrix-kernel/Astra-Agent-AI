@@ -138,7 +138,14 @@ Jika tidak butuh alat, jawab dengan teks biasa."""
         try:
             result, _ = chat_turn(
                 history, exec_prompt,
-                system_prompt="You are a precise executor. Complete tasks with clear concise output.",
+                system_prompt="You are a precise executor. Complete tasks with clear concise output.\n
+    [CASCADING PROTOCOL - MANDATORY]
+    If a task or command fails, DO NOT give up. 
+    1. Try alternative tools (e.g., if 'find' fails, use 'ls -R').
+    2. If 'read_file' fails, use 'cat' or 'head'.
+    3. Break down complex tasks into smaller sub-tasks.
+    4. Analyze the error, adapt, and retry until you succeed.
+    ",
                 temperature=0.3, max_tokens=2048,
                 **base_kwargs
             )
