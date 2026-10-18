@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Astra Agent AI Agent AI AI</title>
+    <title>Astra Agent AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -33,11 +33,12 @@
     <div class="w-64 glass-panel flex flex-col hidden md:flex z-20 m-4 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
         <div class="p-5 flex items-center gap-3">
             <i class="ph-fill ph-asterisk text-white text-3xl"></i>
-            <div><div class="font-bold text-white text-base">Astra Agent AI Agent AI AI</div><div class="text-[10px] text-gray-400">Local · Private · Yours</div></div>
+            <div><div class="font-bold text-white text-base">Astra Agent AI</div><div class="text-[10px] text-gray-400">Local · Private · Yours</div></div>
         </div>
         <div class="px-3 space-y-1 mt-2">
             <button class="w-full flex items-center gap-3 px-3 py-2.5 bg-white/10 rounded-lg text-white font-medium"><i class="ph ph-chat-circle text-lg"></i> <span data-i18n="chat">Chat</span></button>
             <button id="openExtensionsBtn" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-lg transition"><i class="ph ph-puzzle-piece text-lg"></i> <span>Extensions</span></button>
+            <button onclick="window.location.href='/static/coder.html'" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-xl transition text-sm"><i class="ph ph-code text-lg"></i> <span>Coder Mode</span></button>
             <button id="openSettingsBtn" class="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:bg-white/5 rounded-lg transition"><i class="ph ph-gear text-lg"></i> <span data-i18n="settings">Settings</span></button>
         </div>
         <div class="px-5 mt-6 mb-2 flex items-center justify-between">
@@ -165,7 +166,7 @@
             </div>
         </div>
         <div class="p-5 border-t border-white/5">
-            <div class="flex items-center gap-2"><i class="ph-fill ph-asterisk text-gray-400 text-xl"></i><div><div class="text-[11px] text-gray-300">Astra Agent AI Agent AI AI v0.1.0</div><div class="text-[10px] text-gray-500">Local AI</div></div></div>
+            <div class="flex items-center gap-2"><i class="ph-fill ph-asterisk text-gray-400 text-xl"></i><div><div class="text-[11px] text-gray-300">Astra Agent AI v0.1.0</div><div class="text-[10px] text-gray-500">Local AI</div></div></div>
         </div>
     </div>
 
@@ -550,7 +551,7 @@
             const type = titleEl.getAttribute('data-i18n');
             if (type === 'card_code_title') { input.value = "Tolong buatkan kode untuk: "; input.focus(); }
             else if (type === 'card_ask_title') { input.value = "Jelaskan secara detail tentang: "; input.focus(); }
-            else if (type === 'card_private_title') { input.value = "Bagaimana sistem privasi dan keamanan lokal di Astra Agent AI Agent AI AI ini bekerja?"; sendBtn.click(); }
+            else if (type === 'card_private_title') { input.value = "Bagaimana sistem privasi dan keamanan lokal di Astra Agent AI ini bekerja?"; sendBtn.click(); }
         });
 
         // START
@@ -1011,66 +1012,39 @@ ${inputEl.value}`;
 
 
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Pantau terus tiap 1 detik buat mastiin sinkron
-    setInterval(() => {
-        const sel = document.getElementById('setModelOverride');
-        if (!sel) return;
 
-        // Ambil ID asli (misal: openrouter/deepseek) dari dropdown settings
-        const selectedId = sel.value;
-        if (!selectedId) return;
 
-        // Paksa semua teks di area Chat jadi ID asli
-        const elInput = document.getElementById('inputModelText');
-        const elSys = document.getElementById('sysModelName');
-        const elCenter = document.getElementById('centerModelText');
 
-        if (elInput && elInput.textContent !== selectedId) elInput.textContent = selectedId;
-        if (elSys && elSys.textContent !== selectedId) elSys.textContent = selectedId;
-        if (elCenter && elCenter.textContent !== selectedId) elCenter.textContent = selectedId;
 
-    }, 1000); // 1000ms = 1 detik
-});
-</script>
+
+
+
 
 
 <script>
-setInterval(function() {
-    const el = document.getElementById('greetingText');
-    if (el && el.innerText !== 'Astra Agent AI Agent AIx Agent Ai') {
-        el.innerText = 'Astra Agent AI Agent AIx Agent Ai';
+const forceAstra = function() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while (node = walker.nextNode()) {
+        if (node.nodeValue && node.nodeValue.includes('there')) {
+            if (node.nodeValue.includes('Good morning, there') || 
+                node.nodeValue.includes('Good night, there') || 
+                node.nodeValue.includes('Good afternoon, there') || 
+                node.nodeValue.includes('Good evening, there')) {
+                node.nodeValue = 'Astra Agent AI';
+            }
+        }
     }
-}, 10);
-</script>
+};
 
+// Jalanin tiap 100ms
+setInterval(forceAstra, 100);
 
-<script>
-setInterval(function() {
-    var el = document.getElementById('greetingText');
-    if (el && el.innerText !== 'Astra Agent AI') {
-        el.innerText = 'Astra Agent AI';
-    }
-}, 50);
+// Jalanin saat halaman selesai dimuat
+document.addEventListener('DOMContentLoaded', forceAstra);
 </script>
 
 </body>
 
 </html>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  const hour = new Date().getHours();
-  let timeGreet = "Good morning";
-  let timeGreetId = "Selamat pagi";
-  if (hour >= 12 && hour < 17) { timeGreet = "Good afternoon"; timeGreetId = "Selamat siang"; }
-  else if (hour >= 17 && hour < 21) { timeGreet = "Good evening"; timeGreetId = "Selamat sore"; }
-  else if (hour >= 21 || hour < 5) { timeGreet = "Good night"; timeGreetId = "Selamat malam"; }
-  const titleEl = document.querySelector(".text-5xl");
-  if (titleEl) {
-    const currentText = titleEl.innerText;
-    const namePart = currentText.includes(",") ? currentText.substring(currentText.indexOf(",")) : ", there";
-    titleEl.innerText = (window.currentLang === "id" ? timeGreetId : timeGreet) + namePart;
-  }
-});
-</script>
+

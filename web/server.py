@@ -1,3 +1,4 @@
+from coder_api import router as coder_router
 import traceback
 """Astra Web UI server — wrap agent + WebSocket streaming."""
 import sys, os, json, asyncio, threading, time

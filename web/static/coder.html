@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Astra Coder Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-blue-400">🛠️ Astra Coder Mode</h1>
+        <p class="text-gray-400 mb-8">Standalone coding agent for scanning, fixing, and building code.</p>
+
+        <!-- Scan & Remove Section -->
+        <div class="bg-gray-800 p-6 rounded-xl mb-6">
+            <h2 class="text-xl font-bold mb-4">1. Scan & Clean Code</h2>
+            <input id="scanPath" type="text" placeholder="File path (e.g., web/server.py)" class="w-full p-2 mb-2 bg-gray-700 rounded text-white">
+            <button onclick="scanCode()" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500 mb-4">Scan for Bugs</button>
+            <button onclick="removeCode()" class="bg-red-600 px-4 py-2 rounded hover:bg-red-500 mb-4">Remove Unused Line</button>
+            <input id="removePattern" type="text" placeholder="Text to remove (e.g., print('debug'))" class="w-full p-2 mb-2 bg-gray-700 rounded text-white">
+            <pre id="scanResult" class="bg-black p-4 rounded text-sm text-green-400 mt-4 h-32 overflow-y-auto">Result will appear here...</pre>
+        </div>
+
+        <!-- Write & Build Section -->
+        <div class="bg-gray-800 p-6 rounded-xl">
+            <h2 class="text-xl font-bold mb-4">2. Auto Build Project</h2>
+            <input id="buildCmd" type="text" value="make -j4" class="w-full p-2 mb-2 bg-gray-700 rounded text-white">
+            <button onclick="buildProject()" class="bg-green-600 px-4 py-2 rounded hover:bg-green-500">Run Build</button>
+            <pre id="buildResult" class="bg-black p-4 rounded text-sm text-yellow-400 mt-4 h-32 overflow-y-auto">Build output will appear here...</pre>
+        </div>
+    </div>
+
+    <script>
+        async function scanCode() {
+            const path = document.getElementById('scanPath').value;
+            const res = await fetch('/api/coder/scan', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file_path: path}) });
+            const data = await res.json();
+            document.getElementById('scanResult').innerText = data.result;
+        }
+        async function removeCode() {
+            const path = document.getElementById('scanPath').value;
+            const pattern = document.getElementById('removePattern').value;
+            const res = await fetch('/api/coder/remove', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({file_path: path, pattern: pattern}) });
+            const data = await res.json();
+            document.getElementById('scanResult').innerText = data.result;
+        }
+        async function buildProject() {
+            const cmd = document.getElementById('buildCmd').value;
+            const res = await fetch('/api/coder/build', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({command: cmd}) });
+            const data = await res.json();
+            document.getElementById('buildResult').innerText = data.result;
+        }
+    </script>
+</body>
+</html>
