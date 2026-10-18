@@ -188,8 +188,8 @@ These steps describe the repository's current basic startup flow. Commands may n
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/astrix-kernel/astra-agent.git
-cd astra-agent
+git clone https://github.com/astrix-kernel/Astra-Agent-AI.git
+cd Astra-Agent-AI
 ```
 
 ### 2. Create a Python virtual environment
@@ -300,7 +300,7 @@ The configured workspace is a starting point, not a substitute for checking the 
 After setup, the normal startup sequence is:
 
 ```bash
-cd astra-agent
+cd Astra-Agent-AI
 source .venv/bin/activate
 python3 web/server.py
 ```
@@ -540,7 +540,7 @@ The project is intended to avoid built-in telemetry and cloud synchronization. N
 The main documented files and directories are organized approximately as follows:
 
 ```text
-astro-agent/
+Astra-Agent-AI/
 ├── 6_agent/
 │   ├── chat.py             # Main chat orchestration
 │   ├── multi_agent.py      # Planner and Executor workflow
@@ -569,7 +569,7 @@ Your checkout may contain additional files or a slightly different layout as dev
 Some Linux distributions prevent `pip` from installing packages directly into the operating system's managed Python environment. Use a virtual environment instead of forcing installation into system Python:
 
 ```bash
-cd astra-agent
+cd Astra-Agent-AI
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
