@@ -17,6 +17,149 @@ import os
 
 import subprocess
 
+
+# ============ PREFLIGHT CHECK ============
+def _preflight_check(workspace, chat_turn_fn, base_kwargs, log_fn):
+    """3 preflight checks. Return True if all pass, False to abort."""
+    log_fn("=" * 55)
+    log_fn("🚦 PREFLIGHT CHECK — agent akan di-test sebelum mulai kerja")
+    log_fn("=" * 55)
+    
+    # === CHECK 1/3: ENVIRONMENT ===
+    try:
+        from pathlib import Path
+        _ws = Path(str(workspace))
+        if not _ws.exists():
+            log_fn(f"❌ CHECK 1/3 FAIL: workspace tidak ada: {_ws}")
+            log_fn("🚫 AGENT DIBATALKAN")
+            return False
+        if not _ws.is_dir():
+            log_fn(f"❌ CHECK 1/3 FAIL: bukan folder: {_ws}")
+            log_fn("🚫 AGENT DIBATALKAN")
+            return False
+        _test = _ws / ".preflight_test"
+        try:
+            _test.write_text("preflight")
+            _test.unlink()
+        except Exception as _e:
+            log_fn(f"❌ CHECK 1/3 FAIL: workspace tidak writable: {_e}")
+            log_fn("🚫 AGENT DIBATALKAN")
+            return False
+        try:
+            from tools import TOOLS
+            from config import REQUEST_TIMEOUT, MAX_TOKENS_PER_RESPONSE
+        except Exception as _e:
+            log_fn(f"❌ CHECK 1/3 FAIL: import error: {_e}")
+            log_fn("🚫 AGENT DIBATALKAN")
+            return False
+        log_fn(f"✅ CHECK 1/3 PASS: environment (writable={_ws})")
+    except Exception as _e:
+        log_fn(f"❌ CHECK 1/3 FAIL: {_e}")
+        log_fn("🚫 AGENT DIBATALKAN")
+        return False
+    
+    # === CHECK 2/3: TOOLS ===
+    try:
+        from tools import TOOLS, find_files, search_text
+        _n = len(TOOLS)
+        if _n < 10:
+            log_fn(f"❌ CHECK 2/3 FAIL: hanya {_n} tools (min 10)")
+            log_fn("🚫 AGENT DIBATALKAN")
+            return False
+        _r1 = find_files("*.md", path=".", max_results=1)
+        if not isinstance(_r1, str):
+            log_fn("❌ CHECK 2/3 FAIL: find_files rusak")
+            log_fn("🚫 AGENT DIBATALKAN")
+            return False
+        _r2 = search_text("def ", path=".", include="*.py", max_results=1)
+        if not isinstance(_r2, str):
+            log_fn("❌ CHECK 2/3 FAIL: search_text rusak")
+            log_fn("🚫 AGENT DIBATALKAN")
+            return False
+        log_fn(f"✅ CHECK 2/3 PASS: tools ({_n} loaded, callable)")
+    except Exception as _e:
+        log_fn(f"❌ CHECK 2/3 FAIL: {_e}")
+        log_fn("🚫 AGENT DIBATALKAN")
+        return False
+    
+    # === CHECK 3/3: LLM STABILITY (3x) ===
+    if not chat_turn_fn:
+        log_fn("⚠️  CHECK 3/3 SKIP: chat_turn tidak available")
+        log_fn("✅ PREFLIGHT PASSED (warning)")
+        return True
+    
+    _pf_kwargs = dict(base_kwargs) if base_kwargs else {}
+    _pf_kwargs.pop('max_tokens', None)
+    _pf_kwargs['max_tokens'] = 10
+    # Strip incompatible kwargs + ensure custom_model ada
+    _allowed = set()
+    try:
+        import inspect as _insp
+        from chat import chat_turn as _ct_sig
+        _sig = _insp.signature(_ct_sig)
+        _allowed = set(_sig.parameters.keys())
+        _pf_kwargs = {k: v for k, v in _pf_kwargs.items() if k in _allowed}
+        print(f"[PREFLIGHT] chat_turn params: {sorted(_allowed)}", flush=True)
+    except Exception as _e:
+        print(f"[PREFLIGHT] sig check failed: {_e}", flush=True)
+    
+    # Ensure custom_model ada (chat_turn butuh ini, bukan 'model')
+    if not _allowed or 'custom_model' in _allowed:
+        if not _pf_kwargs.get('custom_model'):
+            try:
+                from config import DEFAULT_MODEL
+                if DEFAULT_MODEL:
+                    _pf_kwargs['custom_model'] = DEFAULT_MODEL
+            except Exception:
+                pass
+        if not _pf_kwargs.get('custom_model'):
+            _pf_kwargs['custom_model'] = 'nvidia/nvidia/nemotron-3-ultra-550b-a55b'
+        print(f"[PREFLIGHT] using model: {_pf_kwargs.get('custom_model')}", flush=True)
+    
+    _success = 0
+    _errors = []
+    for _i in range(3):
+        try:
+            _resp, _ = chat_turn_fn(
+                [], "Reply with exactly one word: OK",
+                system_prompt="You are health check. Reply exactly: OK",
+                **_pf_kwargs
+            )
+            if not _resp or len(_resp.strip()) == 0:
+                _errors.append(f"attempt {_i+1}: empty")
+                log_fn(f"   ❌ LLM {_i+1}/3: empty")
+                continue
+            _low = _resp.lower()
+            _markers = ['error', 'unauthorized', 'rate limit', 'invalid api', 'not found', 'forbidden', 'timeout']
+            _hit = next((m for m in _markers if m in _low), None)
+            if _hit:
+                _errors.append(f"attempt {_i+1}: '{_hit}' in: {_resp[:60]}")
+                log_fn(f"   ❌ LLM {_i+1}/3: marker '{_hit}'")
+                continue
+            _success += 1
+            log_fn(f"   ✅ LLM {_i+1}/3: OK")
+        except Exception as _e:
+            _errors.append(f"attempt {_i+1}: {str(_e)[:100]}")
+            log_fn(f"   ❌ LLM {_i+1}/3: {str(_e)[:100]}")
+    
+    if _success < 3:
+        log_fn(f"❌ CHECK 3/3 FAIL: LLM unstable ({_success}/3)")
+        for _e in _errors:
+            log_fn(f"   - {_e}")
+        log_fn("🚫 AGENT DIBATALKAN")
+        log_fn("   Cek: API key, network, provider status")
+        return False
+    
+    log_fn(f"✅ CHECK 3/3 PASS: LLM stable (3/3)")
+    log_fn("=" * 55)
+    log_fn("✅ PREFLIGHT PASSED — agent mulai kerja")
+    log_fn("=" * 55)
+    return True
+
+# ============ END PREFLIGHT ============
+
+
+
 def _get_prioritized_files(goal, current_files):
     """Return merged priority files from goal + current_files. Never raises.
 
@@ -832,6 +975,21 @@ def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max
     log(f"🎯 Goal: {goal}")
     log(f"🔌 API: {'custom (' + str(base_url) + ')' if base_url else 'default'}")
     log(f"🧠 Model: {model or 'default'}")
+    # === PREFLIGHT CHECK ===
+    try:
+        from config import WORKSPACE as _PF_WS
+        if not _preflight_check(_PF_WS, chat_turn, base_kwargs, log):
+            log("🚫 Agent dibatalkan karena preflight check gagal")
+            return {
+                "error": "Preflight check failed — agent aborted",
+                "goal": goal,
+                "aborted": True,
+                "results": [],
+            }
+    except NameError as _pf_ne:
+        log(f"⚠️  Preflight skip (variable missing: {_pf_ne})")
+    # === END PREFLIGHT ===
+    
     log("📋 Phase 1: Planning...")
     if status_callback: status_callback("thinking", "🧠 Thinking... menganalisis tugas")
     
