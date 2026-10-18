@@ -38,7 +38,7 @@ def generate_extensions():
             ("react", "React", "ph-atom", "text-cyan-400"), ("vue", "Vue.js", "ph-leaf", "text-green-500"),
             ("angular", "Angular", "ph-shield", "text-red-500"), ("svelte", "Svelte", "ph-lightning", "text-orange-500"),
             ("nextjs", "Next.js", "ph-arrow-right", "text-white"), ("nuxt", "Nuxt", "ph-mountains", "text-green-400"),
-            ("remix", "Remix", "ph-code", "text-blue-500"), ("astro", "Astro", "ph-rocket-launch", "text-orange-500"),
+            ("remix", "Remix", "ph-code", "text-blue-500"), ("astro", "Astra", "ph-rocket-launch", "text-orange-500"),
             ("solid", "SolidJS", "ph-cube", "text-blue-400"), ("qwik", "Qwik", "ph-lightning", "text-purple-500"),
             ("ember", "Ember.js", "ph-fire", "text-red-500"), ("backbone", "Backbone.js", "ph-link", "text-blue-500"),
             ("alpine", "Alpine.js", "ph-mountain", "text-blue-400"), ("preact", "Preact", "ph-atom", "text-purple-500"),

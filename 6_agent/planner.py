@@ -7,7 +7,7 @@ from knowledge import build_knowledge_block
 from context import get_project_tree
 
 
-PLANNER_PROMPT = """Kamu adalah **Planner** untuk Astrix Agent — workspace project.
+PLANNER_PROMPT = """Kamu adalah **Planner** untuk Astra Agent — workspace project.
 
 Tugasmu: baca goal dari user, breakdown jadi **15-30 task** yang SATU ORANG BISA KERJA SENDIRI.
 

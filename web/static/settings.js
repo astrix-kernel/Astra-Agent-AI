@@ -1,4 +1,4 @@
-/* Astrix Settings v3 — AUTO-SAVE (no manual save needed) */
+/* Astra Settings v3 — AUTO-SAVE (no manual save needed) */
 (function() {
   'use strict';
   
@@ -743,7 +743,7 @@ async memory() {
       document.getElementById('testNotificationBtn').onclick = () => {
         if ('Notification' in window) {
           Notification.requestPermission().then(p => {
-            if (p === 'granted') new Notification('Astro AI', { body: 'Test berhasil! 🎉' });
+            if (p === 'granted') new Notification('Astra AI', { body: 'Test berhasil! 🎉' });
           });
         }
       };

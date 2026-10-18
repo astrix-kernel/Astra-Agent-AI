@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Astro AI</title>
+    <title>Astra Agent AI Agent AI AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -33,7 +33,7 @@
     <div class="w-64 glass-panel flex flex-col hidden md:flex z-20 m-4 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
         <div class="p-5 flex items-center gap-3">
             <i class="ph-fill ph-asterisk text-white text-3xl"></i>
-            <div><div class="font-bold text-white text-base">Astro AI</div><div class="text-[10px] text-gray-400">Local · Private · Yours</div></div>
+            <div><div class="font-bold text-white text-base">Astra Agent AI Agent AI AI</div><div class="text-[10px] text-gray-400">Local · Private · Yours</div></div>
         </div>
         <div class="px-3 space-y-1 mt-2">
             <button class="w-full flex items-center gap-3 px-3 py-2.5 bg-white/10 rounded-lg text-white font-medium"><i class="ph ph-chat-circle text-lg"></i> <span data-i18n="chat">Chat</span></button>
@@ -56,7 +56,7 @@
         <div class="flex-1 overflow-y-auto custom-scrollbar" id="chat-container">
             <div class="max-w-4xl mx-auto p-8 pt-16 pb-48">
                 <div id="welcome-screen">
-                    <h1 data-i18n="greeting" class="text-5xl font-bold text-white mb-2 tracking-tight">Good morning, there</h1>
+                    <h1 data-i18n="greeting" class="text-5xl font-bold text-white mb-2 tracking-tight">Astra Agent AI</h1>
                     <p data-i18n="subtitle" class="text-gray-400 mb-6 text-base">Your local AI assistant, running on your machine.</p>
                     <div class="inline-flex items-center gap-2 glass-panel px-3 py-1.5 rounded-full mb-12">
                         <i class="ph ph-cpu text-gray-300"></i>
@@ -165,7 +165,7 @@
             </div>
         </div>
         <div class="p-5 border-t border-white/5">
-            <div class="flex items-center gap-2"><i class="ph-fill ph-asterisk text-gray-400 text-xl"></i><div><div class="text-[11px] text-gray-300">Astro AI v0.1.0</div><div class="text-[10px] text-gray-500">Local AI</div></div></div>
+            <div class="flex items-center gap-2"><i class="ph-fill ph-asterisk text-gray-400 text-xl"></i><div><div class="text-[11px] text-gray-300">Astra Agent AI Agent AI AI v0.1.0</div><div class="text-[10px] text-gray-500">Local AI</div></div></div>
         </div>
     </div>
 
@@ -475,9 +475,9 @@
                 };
 
                 window.updateModelUI = function() {
-                    document.getElementById('inputModelText').textContent = selectedModel.id || selectedModel.label;
-                    document.getElementById('sysModelName').textContent = selectedModel.id || selectedModel.label;
-                    document.getElementById('centerModelText').textContent = selectedModel.id || selectedModel.label;
+                    document.getElementById('inputModelText').textContent = selectedModel.id || selectedModel.id || selectedModel.label;
+                    document.getElementById('sysModelName').textContent = selectedModel.id || selectedModel.id || selectedModel.label;
+                    document.getElementById('centerModelText').textContent = selectedModel.id || selectedModel.id || selectedModel.label;
                     renderMenu(iMenu, selectedModel.key);
                 };
                 window.updateModelUI();
@@ -550,7 +550,7 @@
             const type = titleEl.getAttribute('data-i18n');
             if (type === 'card_code_title') { input.value = "Tolong buatkan kode untuk: "; input.focus(); }
             else if (type === 'card_ask_title') { input.value = "Jelaskan secara detail tentang: "; input.focus(); }
-            else if (type === 'card_private_title') { input.value = "Bagaimana sistem privasi dan keamanan lokal di Astro AI ini bekerja?"; sendBtn.click(); }
+            else if (type === 'card_private_title') { input.value = "Bagaimana sistem privasi dan keamanan lokal di Astra Agent AI Agent AI AI ini bekerja?"; sendBtn.click(); }
         });
 
         // START
@@ -562,7 +562,7 @@
         setInterval(updateSysInfo, 1500);
         renderRecentChats();
         updateContextUsage();
-        console.log('✅ Astrix Core Loaded');
+        console.log('✅ Astra Core Loaded');
     });
     </script>
 
@@ -892,7 +892,7 @@ ${inputEl.value}`;
 
     <script>
     // === CHAT FOLDERS & TAGS ===
-    window.AstrixFolders = {
+    window.AstraFolders = {
         get: () => JSON.parse(localStorage.getItem('astrix_chat_folders') || '{"folders":["📁 Uncategorized"],"chat_folder":{}}'),
         save: (d) => localStorage.setItem('astrix_chat_folders', JSON.stringify(d)),
         
@@ -981,9 +981,9 @@ ${inputEl.value}`;
             if (typeof renderRecentChats === 'function') {
                 const _orig = window.renderRecentChats;
                 window.renderRecentChats = function() {
-                    try { AstrixFolders.renderFolders(); } catch(e) { console.warn('Folder render err:', e); _orig?.(); }
+                    try { AstraFolders.renderFolders(); } catch(e) { console.warn('Folder render err:', e); _orig?.(); }
                 };
-                AstrixFolders.renderFolders();
+                AstraFolders.renderFolders();
                 console.log('[FOLDERS] Ready');
             }
         }, 1500);
@@ -1033,6 +1033,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     }, 1000); // 1000ms = 1 detik
 });
+</script>
+
+
+<script>
+setInterval(function() {
+    const el = document.getElementById('greetingText');
+    if (el && el.innerText !== 'Astra Agent AI Agent AIx Agent Ai') {
+        el.innerText = 'Astra Agent AI Agent AIx Agent Ai';
+    }
+}, 10);
+</script>
+
+
+<script>
+setInterval(function() {
+    var el = document.getElementById('greetingText');
+    if (el && el.innerText !== 'Astra Agent AI') {
+        el.innerText = 'Astra Agent AI';
+    }
+}, 50);
 </script>
 
 </body>

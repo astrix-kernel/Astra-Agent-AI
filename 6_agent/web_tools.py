@@ -74,7 +74,7 @@ def _wiki_search(query, max_results=5):
     try:
         for lang in ['id', 'en']:
             url = f"https://{lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + urllib.parse.quote(query) + f"&format=json&srlimit={max_results}"
-            req = urllib.request.Request(url, headers={'User-Agent': 'AstrixAI/1.0 (Local)'})
+            req = urllib.request.Request(url, headers={'User-Agent': 'AstraAI/1.0 (Local)'})
             data = json.loads(urllib.request.urlopen(req, timeout=10, context=_ctx).read().decode('utf-8'))
             
             results = []

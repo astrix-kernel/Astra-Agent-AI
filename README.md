@@ -1,26 +1,26 @@
-# 🌌 Astro AI Agent
+# 🌌 Astra Agent AI
 
 **A local-first AI assistant that can think through tasks, use tools, work with your files, automate a browser, and remember useful information across conversations.**
 
-Astro AI Agent is designed to be more than a text-only chatbot. Through a web interface, you can ask Astro to help with everyday research, development tasks, project files, and browser workflows. Depending on your configuration and the model you connect, Astro can plan a task, use available tools, report the results, and keep selected information in local memory.
+Astra Agent AI is designed to be more than a text-only chatbot. Through a web interface, you can ask Astra to help with everyday research, development tasks, project files, and browser workflows. Depending on your configuration and the model you connect, Astra can plan a task, use available tools, report the results, and keep selected information in local memory.
 
-Astro runs its application server on your own machine. You choose the language-model endpoint it connects to, the workspace it can work in, and how you use its tools. You can connect an OpenAI-compatible endpoint such as OmniRoute or another supported provider. A locally hosted model can also be used when it exposes a compatible API.
+Astra runs its application server on your own machine. You choose the language-model endpoint it connects to, the workspace it can work in, and how you use its tools. You can connect an OpenAI-compatible endpoint such as OmniRoute or another supported provider. A locally hosted model can also be used when it exposes a compatible API.
 
-> **Important privacy note:** Astro is designed to be local-first, but privacy depends on your configuration. The web server, workspace, and SQLite memory can run locally. If you connect a remote model provider, prompts and the context sent to that provider leave your computer and are processed according to that provider's policies. For a fully local inference setup, configure Astro to use a compatible model server running on your machine and verify that your browser and other tools do not contact remote services unexpectedly.
+> **Important privacy note:** Astra is designed to be local-first, but privacy depends on your configuration. The web server, workspace, and SQLite memory can run locally. If you connect a remote model provider, prompts and the context sent to that provider leave your computer and are processed according to that provider's policies. For a fully local inference setup, configure Astra to use a compatible model server running on your machine and verify that your browser and other tools do not contact remote services unexpectedly.
 
 ---
 
 ## Contents
 
-- [Why Astro?](#-why-astro)
+- [Why Astra?](#-why-astro)
 - [Key Features](#-key-features)
-- [How Astro Works](#-how-astro-works)
+- [How Astra Works](#-how-astro-works)
 - [Architecture Overview](#-architecture-overview)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
-- [Running Astro](#-running-astro)
-- [Using Astro](#-using-astro)
+- [Running Astra](#-running-astro)
+- [Using Astra](#-using-astro)
 - [Example Prompts](#-example-prompts)
 - [Browser Automation](#-browser-automation)
 - [Workspace and File Access](#-workspace-and-file-access)
@@ -37,9 +37,9 @@ Astro runs its application server on your own machine. You choose the language-m
 
 ---
 
-## 🌠 Why Astro?
+## 🌠 Why Astra?
 
-Many chatbots can explain how to complete a task, but they cannot directly interact with your local development environment. Astro is built around the idea that an assistant should be able to do more than generate text: it should be able to use tools to help carry out a task, then show you what happened.
+Many chatbots can explain how to complete a task, but they cannot directly interact with your local development environment. Astra is built around the idea that an assistant should be able to do more than generate text: it should be able to use tools to help carry out a task, then show you what happened.
 
 For example, you could ask:
 
@@ -47,29 +47,29 @@ For example, you could ask:
 
 A tool-enabled workflow can break that request into smaller operations, use the configured model to decide what to do, write the requested file inside an available workspace, and report the result. The exact actions available depend on the tools enabled in your installation and the abilities of the model you configure.
 
-Astro is intended for people who want more control over their assistant: developers, students, researchers, Linux users, and anyone who wants to experiment with local-first AI workflows.
+Astra is intended for people who want more control over their assistant: developers, students, researchers, Linux users, and anyone who wants to experiment with local-first AI workflows.
 
 ## ✨ Key Features
 
 ### 🤖 Multi-model support
 
-Astro connects to an OpenAI-compatible chat-completions endpoint. You can use a routing service such as OmniRoute or another compatible provider. The available models depend on the endpoint, provider account, and provider configuration; a number such as “1,492+ models” describes possible provider coverage, not a guarantee that every model is available in every setup.
+Astra connects to an OpenAI-compatible chat-completions endpoint. You can use a routing service such as OmniRoute or another compatible provider. The available models depend on the endpoint, provider account, and provider configuration; a number such as “1,492+ models” describes possible provider coverage, not a guarantee that every model is available in every setup.
 
 ### 🧩 Planner and Executor workflow
 
-For supported multi-step tasks, Astro can use a planning stage to break a request into smaller steps and an execution stage to perform those steps with available tools. This makes the work easier to follow than a single large response. The quality of planning, execution, recovery, and verification depends on the model, the prompt, and the tools available.
+For supported multi-step tasks, Astra can use a planning stage to break a request into smaller steps and an execution stage to perform those steps with available tools. This makes the work easier to follow than a single large response. The quality of planning, execution, recovery, and verification depends on the model, the prompt, and the tools available.
 
 ### 🌐 Real browser automation
 
-Astro uses Playwright to control a Chromium browser. Depending on the implemented browser tools, it can navigate to pages, interact with page elements, enter text, scroll, and capture screenshots. This is useful for websites whose content is rendered with JavaScript, but it does not guarantee that every website or login flow will work automatically.
+Astra uses Playwright to control a Chromium browser. Depending on the implemented browser tools, it can navigate to pages, interact with page elements, enter text, scroll, and capture screenshots. This is useful for websites whose content is rendered with JavaScript, but it does not guarantee that every website or login flow will work automatically.
 
 ### 📁 Workspace-aware file operations
 
-Choose a project directory and ask Astro to help inspect or modify files within the paths available to its tools. The workspace setting helps you direct Astro toward the project you want to work on. Always review generated code and important file changes before using them in a real project.
+Choose a project directory and ask Astra to help inspect or modify files within the paths available to its tools. The workspace setting helps you direct Astra toward the project you want to work on. Always review generated code and important file changes before using them in a real project.
 
 ### 🧠 Long-term memory with SQLite
 
-Astro includes a local SQLite-based memory component for storing useful facts. This can help it retain selected information between sessions, such as project context or preferences. Memory is not a perfect transcript of every conversation, and you should avoid saving passwords, API keys, private tokens, or other secrets.
+Astra includes a local SQLite-based memory component for storing useful facts. This can help it retain selected information between sessions, such as project context or preferences. Memory is not a perfect transcript of every conversation, and you should avoid saving passwords, API keys, private tokens, or other secrets.
 
 ### 🖼️ Image understanding
 
@@ -77,7 +77,7 @@ You can provide images for analysis when the selected model supports vision and 
 
 ### 🌍 Bilingual interface
 
-The interface supports English and Indonesian, making Astro more accessible to users who prefer either language.
+The interface supports English and Indonesian, making Astra more accessible to users who prefer either language.
 
 ### 🛑 Stop generation
 
@@ -85,17 +85,17 @@ The interface includes a stop control to interrupt a response while it is stream
 
 ### ⚙️ Settings and quick modes
 
-Astro includes a settings interface and quick modes intended to make common configurations easier to manage. The exact options available may depend on the current version of the project.
+Astra includes a settings interface and quick modes intended to make common configurations easier to manage. The exact options available may depend on the current version of the project.
 
 ---
 
-## 🧭 How Astro Works
+## 🧭 How Astra Works
 
 A typical tool-assisted request follows a workflow like this:
 
 ```mermaid
 flowchart TD
-    A[Your request] --> B[Astro web interface]
+    A[Your request] --> B[Astra web interface]
     B --> C[Agent orchestration]
     C --> D[Language model]
     D --> E{Tool needed?}
@@ -109,21 +109,21 @@ flowchart TD
 
 ### 1. You describe the goal
 
-Write a request in ordinary language. For example, ask Astro to inspect a project directory, look up a page in the browser, or create a note.
+Write a request in ordinary language. For example, ask Astra to inspect a project directory, look up a page in the browser, or create a note.
 
 ### 2. The model interprets the request
 
-Astro sends the relevant input to the configured language model. If the task needs multiple steps, the agent workflow can plan those steps before performing supported actions.
+Astra sends the relevant input to the configured language model. If the task needs multiple steps, the agent workflow can plan those steps before performing supported actions.
 
-### 3. Astro uses available tools
+### 3. Astra uses available tools
 
-The agent may use a browser tool, a file operation, a terminal command, or another tool registered in the application. The available tools and their permitted operations determine what Astro can actually do.
+The agent may use a browser tool, a file operation, a terminal command, or another tool registered in the application. The available tools and their permitted operations determine what Astra can actually do.
 
 ### 4. Results are returned to the agent
 
 Tool output is used to inform the next step or the final response. The model can still make mistakes or misunderstand output, so important results should be checked independently.
 
-### 5. Astro reports the outcome
+### 5. Astra reports the outcome
 
 The interface displays the response and, where available, relevant tool results. You remain responsible for reviewing changes that affect your system, files, accounts, or other important resources.
 
@@ -131,7 +131,7 @@ The interface displays the response and, where available, relevant tool results.
 
 ## 🏗️ Architecture Overview
 
-Astro is a Python application with a web backend and a browser-based frontend. The main parts currently documented in the repository are:
+Astra is a Python application with a web backend and a browser-based frontend. The main parts currently documented in the repository are:
 
 | Component | Responsibility |
 | --- | --- |
@@ -174,10 +174,10 @@ Other operating systems may work with adjustments, but they are not the primary 
 | RAM | 8 GB or more for general use; 16 GB or more is more comfortable for heavier workloads or local inference. |
 | Storage | Enough space for the Python environment, browser runtime, logs, memory database, workspace, and any local models. |
 | CPU | A modern multi-core CPU is recommended for a smoother experience. |
-| GPU | Not required by Astro itself. A GPU may help if your selected local model server uses GPU acceleration. |
+| GPU | Not required by Astra itself. A GPU may help if your selected local model server uses GPU acceleration. |
 | Internet connection | Needed for remote model providers and many online browser tasks. Not inherently required for a completely local model and offline workflow. |
 
-**Note:** Hardware requirements vary significantly with the model and workload. Running Astro locally does not mean every model runs locally; a remote API can do the model inference while Astro's application server remains on your machine.
+**Note:** Hardware requirements vary significantly with the model and workload. Running Astra locally does not mean every model runs locally; a remote API can do the model inference while Astra's application server remains on your machine.
 
 ---
 
@@ -233,7 +233,7 @@ Open `.env` in your preferred text editor and configure your model endpoint and 
 LLM_URL=http://localhost:20128/v1/chat/completions
 LLM_API_KEY=replace-with-your-key
 
-# Directory Astro should use as its default workspace
+# Directory Astra should use as its default workspace
 ASTRIX_WORKSPACE=/home/yourname/projects
 
 # Web server settings
@@ -245,7 +245,7 @@ Replace `/home/yourname/projects` with a directory that exists on your machine. 
 
 **Keep `.env` private.** Do not commit API keys, passwords, access tokens, or other secrets to Git. The repository's `.gitignore` should protect local configuration, but check your Git status before making a commit.
 
-### 6. Start Astro
+### 6. Start Astra
 
 ```bash
 python3 web/server.py
@@ -255,13 +255,13 @@ If startup succeeds, open the local interface at:
 
 **http://localhost:8765**
 
-Keep the terminal open while using Astro. To stop the server, use `Ctrl+C` in the terminal where it is running.
+Keep the terminal open while using Astra. To stop the server, use `Ctrl+C` in the terminal where it is running.
 
 ---
 
 ## ⚙️ Configuration
 
-Astro reads its environment settings from `.env` according to the configuration code in the project. The following settings are documented by the current repository README and example file.
+Astra reads its environment settings from `.env` according to the configuration code in the project. The following settings are documented by the current repository README and example file.
 
 | Variable | Example / default | Purpose |
 | --- | --- | --- |
@@ -285,7 +285,7 @@ Binding to `127.0.0.1` normally makes the interface available only from the same
 
 ### Choosing a workspace
 
-Use a dedicated directory for projects you want Astro to work on. For example:
+Use a dedicated directory for projects you want Astra to work on. For example:
 
 ```dotenv
 ASTRIX_WORKSPACE=/home/yourname/Projects
@@ -295,7 +295,7 @@ The configured workspace is a starting point, not a substitute for checking the 
 
 ---
 
-## ▶️ Running Astro
+## ▶️ Running Astra
 
 After setup, the normal startup sequence is:
 
@@ -311,11 +311,11 @@ If you open another terminal to run commands, remember to activate the same envi
 
 ---
 
-## 🧑‍🚀 Using Astro
+## 🧑‍🚀 Using Astra
 
 ### Start with a small task
 
-Begin with a request that has an obvious result and limited side effects. For example, ask Astro to explain a concept, summarize a public page, or write a short note in a test directory.
+Begin with a request that has an obvious result and limited side effects. For example, ask Astra to explain a concept, summarize a public page, or write a short note in a test directory.
 
 ### Be specific about the result
 
@@ -358,7 +358,7 @@ Open https://example.com and click the link labeled "More information" if it is 
 
 ```text
 Create /tmp/astro-notes.txt with the following content:
-Hello from Astro AI Agent.
+Hello from Astra AI Agent.
 Then tell me the path of the file you created.
 ```
 
@@ -393,7 +393,7 @@ Memory behavior depends on how the memory tool and current agent flow are implem
 
 ## 🌐 Browser Automation
 
-Astro uses Playwright to automate a Chromium browser. Browser automation can help with research, navigation, form interaction, and pages that render content with JavaScript.
+Astra uses Playwright to automate a Chromium browser. Browser automation can help with research, navigation, form interaction, and pages that render content with JavaScript.
 
 Depending on the current browser-tool implementation, supported actions may include:
 
@@ -407,9 +407,9 @@ Depending on the current browser-tool implementation, supported actions may incl
 ### Browser automation tips
 
 - Use a clear URL and a specific goal.
-- Ask Astro to summarize what it found rather than assuming every page will load successfully.
+- Ask Astra to summarize what it found rather than assuming every page will load successfully.
 - Be especially careful on pages that submit forms, purchase items, delete records, send messages, or change account settings.
-- Do not ask Astro to enter passwords or sensitive personal information into websites unless you have reviewed the consequences and trust the destination.
+- Do not ask Astra to enter passwords or sensitive personal information into websites unless you have reviewed the consequences and trust the destination.
 - Some websites use bot detection, CAPTCHAs, rate limits, or login flows that may prevent automation.
 - A screenshot shows what the browser rendered; it does not prove that every detail on the page was interpreted correctly.
 
@@ -419,9 +419,9 @@ Playwright being installed does not mean every website interaction is supported.
 
 ## 📂 Workspace and File Access
 
-The workspace setting points Astro toward a default project directory for file-related work. This can help you use Astro as a coding assistant, research helper, or project organizer.
+The workspace setting points Astra toward a default project directory for file-related work. This can help you use Astra as a coding assistant, research helper, or project organizer.
 
-Possible workflows include asking Astro to:
+Possible workflows include asking Astra to:
 
 - Explain a codebase's directory structure
 - Summarize selected source files
@@ -432,20 +432,20 @@ Possible workflows include asking Astro to:
 
 ### File safety recommendations
 
-1. Keep a backup or use Git before asking Astro to modify a project.
+1. Keep a backup or use Git before asking Astra to modify a project.
 2. Begin with read-only tasks while you are learning the tool.
 3. Ask for exact paths and a summary of changes.
 4. Review generated code before executing it.
 5. Avoid giving an agent access to directories containing credentials, private keys, browser profiles, or unrelated personal files.
 6. Use a disposable test directory to learn which file operations are available.
 
-The workspace setting should not be treated as a security sandbox. File access depends on the implementation and operating-system permissions of the process running Astro.
+The workspace setting should not be treated as a security sandbox. File access depends on the implementation and operating-system permissions of the process running Astra.
 
 ---
 
 ## 🧠 Long-Term Memory
 
-Astro includes an SQLite-based memory component for facts intended to remain useful between conversations. This is different from keeping a full, searchable transcript of every chat.
+Astra includes an SQLite-based memory component for facts intended to remain useful between conversations. This is different from keeping a full, searchable transcript of every chat.
 
 ### Useful things to remember
 
@@ -468,7 +468,7 @@ Memory may be incomplete, outdated, or interpreted incorrectly. Verify important
 
 ## 🧠 Models and Providers
 
-Astro is designed to connect to a compatible chat-completions endpoint rather than requiring one specific model to be bundled with the application. This lets you choose a provider based on availability, capability, performance, privacy requirements, and cost.
+Astra is designed to connect to a compatible chat-completions endpoint rather than requiring one specific model to be bundled with the application. This lets you choose a provider based on availability, capability, performance, privacy requirements, and cost.
 
 ### Remote model provider
 
@@ -481,7 +481,7 @@ A model served on your own machine can reduce reliance on remote inference. To u
 Before using a local endpoint, verify that:
 
 - The model server is running.
-- The endpoint supports the chat-completions format expected by Astro.
+- The endpoint supports the chat-completions format expected by Astra.
 - The chosen model has enough memory for your workload.
 - Vision requests use a model and endpoint that support image input.
 - No unexpected remote routing is configured in the model server.
@@ -492,12 +492,12 @@ A compatible API does not guarantee that every model supports tool use or follow
 
 ## 🖼️ Image Understanding
 
-Astro's image-analysis capability depends on a vision-capable model and a working image-input path through the interface and model endpoint.
+Astra's image-analysis capability depends on a vision-capable model and a working image-input path through the interface and model endpoint.
 
 For the best results:
 
 - Upload a clear image with the relevant area visible.
-- Tell Astro what to focus on.
+- Tell Astra what to focus on.
 - Ask it to distinguish visible evidence from guesses.
 - Check important measurements, code, and fine details yourself.
 
@@ -507,7 +507,7 @@ A vision model can misread small text, confuse similar objects, or miss informat
 
 ## 🔒 Privacy and Security
 
-Astro is designed for local-first operation, but no software configuration can guarantee absolute privacy in every situation. Review the full data path of your setup.
+Astra is designed for local-first operation, but no software configuration can guarantee absolute privacy in every situation. Review the full data path of your setup.
 
 ### What can stay on your machine
 
@@ -515,7 +515,7 @@ When configured locally, the application server, workspace files, SQLite memory,
 
 ### What may leave your machine
 
-If you configure a remote LLM endpoint, the prompts and context Astro sends to that endpoint may leave your computer. Online browser automation also visits websites, which can receive ordinary network information such as your IP address and the requests your browser makes. Provider routing and other integrations can introduce additional data paths.
+If you configure a remote LLM endpoint, the prompts and context Astra sends to that endpoint may leave your computer. Online browser automation also visits websites, which can receive ordinary network information such as your IP address and the requests your browser makes. Provider routing and other integrations can introduce additional data paths.
 
 ### Recommended safeguards
 
@@ -594,22 +594,22 @@ python -m playwright install chromium
 
 If Playwright lists missing system libraries, install the required operating-system packages for your distribution using trusted package repositories.
 
-### Astro cannot connect to the model
+### Astra cannot connect to the model
 
 Check the following:
 
 1. Confirm that your model server or routing service is running.
-2. Confirm that `LLM_URL` is the full chat-completions endpoint expected by Astro.
+2. Confirm that `LLM_URL` is the full chat-completions endpoint expected by Astra.
 3. Check that the port and hostname are correct.
 4. Confirm that `LLM_API_KEY` matches the endpoint's expected authentication format.
 5. Check the provider or model server logs for errors.
 6. Test the endpoint independently before debugging the agent tools.
 
-A URL that opens in a browser is not necessarily a valid chat-completions endpoint. The endpoint must implement the API format Astro expects.
+A URL that opens in a browser is not necessarily a valid chat-completions endpoint. The endpoint must implement the API format Astra expects.
 
 ### `Address already in use`
 
-Another process may already be using the configured port. Stop the other server or change `ASTRIX_PORT` in `.env`, then restart Astro.
+Another process may already be using the configured port. Stop the other server or change `ASTRIX_PORT` in `.env`, then restart Astra.
 
 ### The page does not load at `localhost:8765`
 
@@ -620,9 +620,9 @@ Another process may already be using the configured port. Stop the other server 
 
 ### Browser automation fails on a website
 
-The website may block automated access, require authentication, have changed its layout, or rely on unsupported browser behavior. Test with a simple public page first, and do not assume a failed website action means the entire Astro server is broken.
+The website may block automated access, require authentication, have changed its layout, or rely on unsupported browser behavior. Test with a simple public page first, and do not assume a failed website action means the entire Astra server is broken.
 
-### Astro cannot find a file
+### Astra cannot find a file
 
 Check `ASTRIX_WORKSPACE`, the exact path in your request, spelling, capitalization, and file permissions. Use absolute paths while debugging and test with a file in a directory you own.
 
@@ -634,7 +634,7 @@ The stop control can interrupt the AI response, but it cannot necessarily revers
 
 ## ⚠️ Limitations
 
-Astro is an AI agent project and should be treated as experimental software. Keep these limitations in mind:
+Astra is an AI agent project and should be treated as experimental software. Keep these limitations in mind:
 
 - The quality of responses and plans varies by model.
 - Tool availability depends on the current implementation and configuration.
@@ -646,7 +646,7 @@ Astro is an AI agent project and should be treated as experimental software. Kee
 - Model availability, rate limits, cost, and provider policies vary.
 - The application does not replace backups, code review, testing, or user judgment.
 
-Use Astro first on a test project and expand its access only when you understand its behavior.
+Use Astra first on a test project and expand its access only when you understand its behavior.
 
 ---
 
@@ -689,7 +689,7 @@ Repository: <https://github.com/astrix-kernel/astro-agent>
 
 ## 📄 License
 
-Astro AI Agent is distributed under the **MIT License**. See [`LICENSE`](LICENSE) for the full license text and terms.
+Astra AI Agent is distributed under the **MIT License**. See [`LICENSE`](LICENSE) for the full license text and terms.
 
 ---
 

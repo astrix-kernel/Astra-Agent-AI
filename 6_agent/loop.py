@@ -1,4 +1,4 @@
-"""Astrix Agent — main loop: plan → execute → verify → repeat."""
+"""Astra Agent — main loop: plan → execute → verify → repeat."""
 from state import (
     load_state, save_state, clear_state, create_state,
     get_current_task, mark_done, mark_failed, is_complete,
@@ -210,7 +210,7 @@ def run_chat(message, verbose=True):
     from config import LLM_URL, LLM_API_KEY, REQUEST_TIMEOUT
     import runtime
     messages = [
-        {"role": "system", "content": "Kamu Astrix Agent — asisten coding workspace. Jawab singkat dan teknis."},
+        {"role": "system", "content": "Kamu Astra Agent — asisten coding workspace. Jawab singkat dan teknis."},
         {"role": "user", "content": message},
     ]
     r = requests.post(LLM_URL,

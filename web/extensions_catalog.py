@@ -1,4 +1,4 @@
-"""Astrix Extension Marketplace — 127 extensions yang beneran ngecek tool asli di sistem."""
+"""Astra Extension Marketplace — 127 extensions yang beneran ngecek tool asli di sistem."""
 
 EXTENSIONS_RAW = [
     ("cpp", "C/C++ Compiler", "ph-file-c", "text-blue-400", "bg-blue-500/20", "language", "Kompilasi C/C++ via gcc/g++", "bin", "gcc", "gcc", "Compile C: `gcc file.c -o out && ./out`. C++: `g++ file.cpp -o out && ./out`. Read stderr on errors."),
@@ -32,7 +32,7 @@ EXTENSIONS_RAW = [
     ("sass", "Sass/SCSS", "ph-paint-brush", "text-pink-400", "bg-pink-500/20", "frontend", "CSS preprocessor", "bin", "sass", "sass", "Compile: `sass in.scss out.css`."),
     ("nextjs", "Next.js", "ph-arrow-right", "text-white", "bg-white/10", "frontend", "Next.js framework", "bin", "next", "next", "New: `npx create-next-app@latest`. Dev: `next dev`."),
     ("nuxt", "Nuxt", "ph-mountains", "text-green-500", "bg-green-500/20", "frontend", "Nuxt framework", "bin", "nuxt", "nuxt", "New: `npx nuxi init app`. Dev: `npx nuxi dev`."),
-    ("astro", "Astro", "ph-rocket-launch", "text-orange-500", "bg-orange-500/20", "frontend", "Astro framework", "bin", "astro", "astro", "New: `npm create astro@latest`."),
+    ("astro", "Astra", "ph-rocket-launch", "text-orange-500", "bg-orange-500/20", "frontend", "Astra framework", "bin", "astro", "astro", "New: `npm create astro@latest`."),
     ("angular", "Angular", "ph-shield", "text-red-500", "bg-red-500/20", "frontend", "Angular framework", "bin", "ng", "@angular/cli", "New: `ng new app`. Serve: `ng serve`."),
 
     ("fastapi", "FastAPI", "ph-lightning", "text-teal-400", "bg-teal-500/20", "backend", "FastAPI web framework", "pyimport", "fastapi", "fastapi", "Create: `from fastapi import FastAPI`. Run: `uvicorn app:app --reload`."),

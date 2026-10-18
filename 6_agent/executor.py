@@ -15,7 +15,7 @@ from reflection import reflect
 from llm import call_llm as _call_llm
 
 
-EXECUTOR_PROMPT = """Kamu adalah **Executor** untuk Astrix Agent — project workspace.
+EXECUTOR_PROMPT = """Kamu adalah **Executor** untuk Astra Agent — project workspace.
 
 Kamu mengerjakan **SATU task** pada satu waktu. Setelah task selesai, output {"task_done": true}.
 

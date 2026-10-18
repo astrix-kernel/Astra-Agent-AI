@@ -1,5 +1,5 @@
 import traceback
-"""Astrix Web UI server — wrap agent + WebSocket streaming."""
+"""Astra Web UI server — wrap agent + WebSocket streaming."""
 import sys, os, json, asyncio, threading, time
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -98,7 +98,7 @@ async def lifespan(app: FastAPI):
         _cur_label = _cur_model if _cur_model else "(belum dipilih — buka dropdown Model)"
     except Exception:
         _cur_label = "(belum dipilih)"
-    broadcast(f"Astrix Web UI ready — model: {_cur_label}", "system")
+    broadcast(f"Astra Web UI ready — model: {_cur_label}", "system")
 
     try:
         import mood as _mood
@@ -1626,4 +1626,4 @@ async def multi_agent_run(req: dict):
 if __name__ == "__main__":
     import uvicorn
     print("[SERVER] Starting uvicorn on http://0.0.0.0:8765", flush=True)
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")

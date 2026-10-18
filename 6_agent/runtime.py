@@ -94,7 +94,7 @@ def get_model():
     from models import MODELS
     key = get_model_key()
     if key is None or key not in MODELS:
-        raise RuntimeError("Belum pilih model. Pilih dulu di dropdown model UI Astrix.")
+        raise RuntimeError("Belum pilih model. Pilih dulu di dropdown model UI Astra.")
     return MODELS[key]
 
 

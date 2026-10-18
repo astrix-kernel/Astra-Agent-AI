@@ -1,4 +1,4 @@
-"""Astrix Agent CLI — goal mode + chat mode."""
+"""Astra Agent CLI — goal mode + chat mode."""
 from config import ASTRIX_ROOT
 from loop import run_goal, run_chat
 from chat import chat_turn as _chat_turn

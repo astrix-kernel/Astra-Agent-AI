@@ -13,7 +13,7 @@ def desktop_notify(title, body, urgency="normal"):
     if _has("notify-send"):
         try:
             subprocess.Popen(
-                ["notify-send", "-u", urgency, "-a", "Astrix Agent",
+                ["notify-send", "-u", urgency, "-a", "Astra Agent",
                  "-i", "utilities-terminal", title, body],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )

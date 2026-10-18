@@ -1,4 +1,4 @@
-"""State management untuk Astrix Agent — persistent across sessions."""
+"""State management untuk Astra Agent — persistent across sessions."""
 import json, time
 from pathlib import Path
 from config import LOG_DIR
