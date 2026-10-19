@@ -267,6 +267,17 @@ def grep(pattern, path=".", max_hits=25):
 
 def run_command(cmd=None, command=None):
     cmd = cmd or command
+    # === ASTRIX PATCH: Auto-detect build command ===
+    if cmd and cmd.strip() in ("make", "make all", "make build"):
+        try:
+            _detected = detect_build_command()
+            if _detected != cmd.strip():
+                log(f"[AUTO-BUILD] Mengganti '{cmd}' menjadi '{_detected}'")
+                cmd = _detected
+        except Exception:
+            pass
+    # === END PATCH ===
+
     parts = cmd.split()
     if not parts:
         return "ERROR: command kosong"
@@ -929,6 +940,30 @@ def analyze_workspace(keyword, max_files=15, preview_lines=30):
 # ============ END NEW TOOLS ============
 
 
+def detect_build_command():
+    """Deteksi command build yang tepat berdasarkan file di workspace."""
+    from pathlib import Path
+    ws = Path(config.WORKSPACE)
+    
+    if (ws / "Makefile").exists():
+        content = (ws / "Makefile").read_text(errors="ignore")
+        if "\nbuild:" in content or "\nbuild :" in content or content.startswith("build:"):
+            return "make build -j$(nproc)"
+        elif "\nall:" in content or "\nall :" in content or content.startswith("all:"):
+            return "make all -j$(nproc)"
+        else:
+            return "make -j$(nproc)"
+    elif (ws / "CMakeLists.txt").exists():
+        return "cmake -B build && cmake --build build -j$(nproc)"
+    elif (ws / "Cargo.toml").exists():
+        return "cargo build --release"
+    elif (ws / "package.json").exists():
+        return "npm run build"
+    elif (ws / "go.mod").exists():
+        return "go build ./..."
+    else:
+        return "make"
+
 TOOLS = {
     "web_search": web_search,
     "browse_url": browse_url,
@@ -967,6 +1002,7 @@ TOOLS = {
     "git_diff": git_diff,
     "multi_edit": multi_edit,
     "analyze_workspace": analyze_workspace,
+    "detect_build_command": detect_build_command,
 }
 
 # === Browser tools attach (HARUS setelah TOOLS didefinisikan) ===

@@ -1273,8 +1273,8 @@ If a task or command fails, DO NOT give up.
             log(f"✅ Layer 3 (line): {len(tasks)} tasks")
     
     if not tasks:
-        log("⚠ All parsers failed, using goal as single task")
-        tasks = [goal]
+        log("❌ Planner gagal total. MEMBATALKAN PROSES.")
+        return {"error": "Planner failed", "aborted": True, "results": [], "session_id": _sdb_session_id if "_sdb_session_id" in dir() else None}
     else:
         log(f"✅ Plan ready: {len(tasks)} tasks")
     # === ASTRIX PATCH: session DB hook ===
@@ -1357,7 +1357,7 @@ If a task or command fails, DO NOT give up.
         workspace_name = "workspace"
     
     total_attempts = 0
-    max_retries_per_task = 2
+    max_retries_per_task = getattr(__import__('config'), 'MAX_RETRIES_PER_TASK', 6)
     created_files_this_run = set()  # ← track per-run
     
     for i, task in enumerate(tasks, 1):
@@ -1431,7 +1431,12 @@ Kalau butuh fungsi yang nggak ada di snapshot:
 
     INSTRUKSI KERAS:
 
-    🚨 EVIDENCE-BASED CODING (ANTI-HALUSINASI):
+    🚨 BUILD SYSTEM (JANGAN ASAL MAKE):
+- Selalu panggil `detect_build_command()` untuk tahu command build yang benar (misal `make build -j$(nproc)`).
+- Kalau lu cuma ngetik `make`, sistem akan otomatis menggantinya, TAPI lebih baik lu tau command aslinya.
+- Kalau detect_build_command() return `make build -j$(nproc)`, gunakan itu.
+
+🚨 EVIDENCE-BASED CODING (ANTI-HALUSINASI):
 
 Setiap baris code yang kamu tulis HARUS punya BUKTI di codebase. Sebelum nulis:
 
@@ -1686,22 +1691,45 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
                             )
                             results.append(final_result)
                             
-                            # === ASTRIX PATCH: task_done logic ===
-                            # Kalau tool_result sukses (bukan ERROR/FAILED), task selesai
-                            _result_str = str(tool_result)[:50]
-                            if not (_result_str.startswith("ERROR") or _result_str.startswith("❌") or _result_str.startswith("FAILED")):
+                            # === ASTRIX PATCH: BETTER task_done logic ===
+                            _result_str = str(tool_result)[:200]
+                            _task_lower = task.lower()
+                            _is_add = '[add]' in _task_lower or 'buat file' in _task_lower or 'create file' in _task_lower
+                            _is_build = '[build]' in _task_lower or '[verify]' in _task_lower or 'make' in _task_lower
+                            _is_identify = 'identifikasi' in _task_lower or 'cek error' in _task_lower or 'lihat error' in _task_lower or 'jalankan make' in _task_lower
+                            _task_ok = False
+                            if _is_add:
+                                if tool_name in ('write_file', 'create_file', 'multi_write', 'append_to_file'):
+                                    if not _result_str.startswith('ERROR'):
+                                        _task_ok = True
+                                    else:
+                                        log(f'   ⚠️ write_file error, retry')
+                                else:
+                                    log(f'   ⚠️ Task [ADD] pakai {tool_name}, bukan write_file. Retry.')
+                            elif _is_build:
+                                # BRUTAL FIX: Apapun hasil run_command (exit=0 atau 1), anggap selesai.
+                                if tool_name == "run_command":
+                                    _task_ok = True
+                                    log("   ✅ Task [BUILD] selesai (command executed)")
+                                elif tool_name in ("write_file", "multi_write", "replace_text") and not _result_str.startswith("ERROR"):
+                                    _task_ok = True
+                            
+                            else:
+                                if not _result_str.startswith('ERROR'):
+                                    _task_ok = True
+                            if _task_ok:
                                 task_done = True
-                                log(f"   ✅ Task {i} selesai (sukses)")
-                                # === ASTRIX PATCH: update progress ===
+                                log(f'   ✅ Task {i} selesai (verified)')
                                 try:
                                     if '_sdb_session_id' in dir() and _sdb_session_id:
                                         from session_db import update_session as _sdb_upd
                                         _sdb_done = sum(1 for r in results if r and not str(r).startswith(('FAILED', '❌')))
                                         _sdb_fail = sum(1 for r in results if r and str(r).startswith('FAILED'))
                                         _sdb_upd(_sdb_session_id, completed=_sdb_done, failed=_sdb_fail)
-                                except Exception:
-                                    pass
-                                # === END PATCH ===
+                                except Exception as _e_db:
+                                    log(f'⚠️ DB update: {_e_db}')
+                                break
+                            # === END PATCH ===
                                 break
                             else:
                                 log(f"   ⚠️ Tool returned error, akan retry")
@@ -1714,6 +1742,19 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
                         results.append(result)
                 else:
                     results.append(result)
+                    # === ASTRIX PATCH: Task done jika LLM kasih report teks ===
+                    task_done = True
+                    log(f"   ✅ Task {i} selesai (laporan teks dari LLM)")
+                    try:
+                        if '_sdb_session_id' in dir() and _sdb_session_id:
+                            from session_db import update_session as _sdb_upd
+                            _sdb_done = sum(1 for r in results if r and not str(r).startswith(('FAILED', '❌')))
+                            _sdb_fail = sum(1 for r in results if r and str(r).startswith('FAILED'))
+                            _sdb_upd(_sdb_session_id, completed=_sdb_done, failed=_sdb_fail)
+                    except Exception:
+                        pass
+                    break
+                    # === END PATCH ===
                 
             except Exception as e:
                 results.append(f"❌ Error: {e}")
