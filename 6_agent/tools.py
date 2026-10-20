@@ -8,7 +8,7 @@ import shutil, subprocess, time
 from pathlib import Path
 import config
 from config import (
-    ASTRIX_ROOT, TRASH_DIR, LOG_FILE, ALLOWED_COMMANDS,
+    LOG_FILE, ALLOWED_COMMANDS,
     SELF_ROOT, SELF_EDIT_WHITELIST, SELF_EDIT_BLOCK,
     MAX_FILE_READ_BYTES, MAX_TOOL_RESULT_CHARS,
     WRITABLE_EXT, WRITABLE_NAMES, VERIFY_COMPILER,
@@ -35,7 +35,7 @@ def log(msg):
         f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
 
 def safe_path(path):
-    """Make sure the path is inside astrix_root."""
+    """Make sure the path is inside the active workspace."""
 
     if not path:
         path = "."
@@ -46,68 +46,271 @@ def safe_path(path):
     if path.startswith("/"):
         full = Path(path).resolve()
         try:
-            full.relative_to(config.WORKSPACE.resolve())
+            full.relative_to(config.get_workspace().resolve())
             return full
         except ValueError:
             raise PermissionError(f"Path absolut di luar workspace: {path}")
-    full = (config.WORKSPACE / path).resolve()
+    full = (config.get_workspace() / path).resolve()
     try:
-        full.relative_to(config.WORKSPACE.resolve())
+        full.relative_to(config.get_workspace().resolve())
     except ValueError:
         raise PermissionError(f"Path keluar sandbox: {path}")
     return full
 
 def _verify_syntax(path_obj):
     ext = path_obj.suffix
-    if ext not in VERIFY_COMPILER:
-        return True, "no verifier"
-    cmd = list(VERIFY_COMPILER[ext])
-    # === ASTRIX PATCH: include paths untuk kode kernel C/C++ ===
-    # cwd = config.WORKSPACE, jadi cukup pakai relative path.
-    if ext in (".S", ".s", ".asm"):
+    file_path = str(path_obj.resolve())
+    cwd = str(config.get_workspace())
+
+    # Validators for languages and data formats that do not use
+    # the legacy VERIFY_COMPILER command table.
+    import tempfile
+
+    def run_check(cmd, label, timeout=30):
         try:
-            asm_cmd = ["gcc", "-fsyntax-only", "-x", "assembler-with-cpp", str(path_obj)] if ext != ".asm" else ["nasm", "-f", "elf64", str(path_obj), "-o", "/dev/null"]
-            r = subprocess.run(asm_cmd, cwd=str(config.WORKSPACE),
-                               capture_output=True, text=True, timeout=30)
-            return (r.returncode == 0, "syntax OK" if r.returncode == 0 else (r.stderr or r.stdout)[:500])
+            r = subprocess.run(
+                cmd, cwd=cwd, capture_output=True, text=True,
+                timeout=timeout
+            )
+            if r.returncode == 0:
+                return True, f"{label}: valid"
+            detail = (r.stderr or r.stdout or "validator failed").strip()
+            return False, f"{label}: invalid\n{detail[:500]}"
         except FileNotFoundError:
-            return True, "assembler not installed, skipped"
+            return True, f"{label}: validation skipped (tool not installed)"
+        except subprocess.TimeoutExpired:
+            return False, f"{label}: validation timeout"
         except Exception as e:
-            return False, f"assembler error: {e}"
-    if ext in (".c", ".h", ".cpp"):
-        cmd += ["-ffreestanding", "-std=gnu11"]
-        # Auto-detect include paths: scan semua subdir dari workspace
+            return False, f"{label}: validator error: {e}"
+
+    if ext == ".py":
+        try:
+            with tempfile.TemporaryDirectory(prefix="astra-verify-") as td:
+                pyc = str(Path(td) / "check.pyc")
+                return run_check([
+                    shutil.which("python3") or "python3",
+                    "-c",
+                    "import py_compile,sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True)",
+                    file_path, pyc
+                ], "Python")
+        except Exception as e:
+            return False, f"Python validator error: {e}"
+
+    if ext == ".json":
+        return run_check(["python3", "-m", "json.tool", file_path], "JSON")
+
+    if ext in (".js", ".mjs", ".cjs"):
+        return run_check(["node", "--check", file_path], "JavaScript")
+
+    if ext == ".rs":
+        try:
+            with tempfile.TemporaryDirectory(prefix="astra-rust-") as td:
+                output_path = str(Path(td) / "astra_verify.rmeta")
+                return run_check([
+                    "rustc", "--edition=2021",
+                    "--crate-name=astra_verify",
+                    "--emit=metadata", "-o", output_path, file_path
+                ], "Rust")
+        except Exception as e:
+            return False, f"Rust validator error: {e}"
+
+    if ext == ".java":
+        try:
+            with tempfile.TemporaryDirectory(prefix="astra-javac-") as td:
+                return run_check([
+                    "javac", "-d", td, file_path
+                ], "Java", timeout=60)
+        except Exception as e:
+            return False, f"Java validator error: {e}"
+
+    if ext == ".xml":
+        return run_check([
+            "python3", "-c",
+            "import sys,xml.etree.ElementTree as E; E.parse(sys.argv[1])",
+            file_path
+        ], "XML")
+
+    if ext == ".toml":
+        return run_check([
+            "python3", "-c",
+            "import sys,tomllib; tomllib.load(open(sys.argv[1], 'rb'))",
+            file_path
+        ], "TOML")
+
+    if ext in (".yaml", ".yml"):
+        try:
+            import yaml
+        except ImportError:
+            return True, "YAML: validation skipped (PyYAML not installed)"
+        try:
+            with open(file_path, "r", encoding="utf-8") as stream:
+                yaml.safe_load(stream)
+            return True, "YAML: valid"
+        except Exception as e:
+            return False, f"YAML: invalid\n{str(e)[:500]}"
+
+    if ext in (".ts", ".tsx", ".jsx"):
+        tsc = shutil.which("tsc")
+        if not tsc:
+            candidate = (
+                Path.home()
+                / ".local/share/astrix-toolchain/node_modules/.bin/tsc"
+            )
+            if candidate.is_file():
+                tsc = str(candidate)
+
+        if not tsc:
+            return True, (
+                f"{ext[1:].upper()}: validation skipped "
+                "(TypeScript compiler 'tsc' not installed)"
+            )
+
+        if ext == ".tsx":
+            ts_cmd = [
+                tsc, "--noEmit", "--pretty", "false",
+                "--jsx", "preserve", file_path
+            ]
+        elif ext == ".jsx":
+            ts_cmd = [
+                tsc, "--noEmit", "--pretty", "false",
+                "--allowJs", "--checkJs", "false",
+                "--jsx", "preserve", file_path
+            ]
+        else:
+            ts_cmd = [
+                tsc, "--noEmit", "--pretty", "false", file_path
+            ]
+
+        return run_check(ts_cmd, ext[1:].upper(), timeout=60)
+
+    if ext in (".sh", ".bash"):
+        return run_check(["bash", "-n", file_path], "Shell")
+
+    if ext == ".go":
+        gofmt = shutil.which("gofmt")
+        if not gofmt:
+            return True, "Go: validation skipped (gofmt not installed)"
+        return run_check([gofmt, "-e", file_path], "Go")
+
+    if ext == ".zig":
+        zig = shutil.which("zig")
+        if not zig:
+            return True, "Zig: validation skipped (zig compiler not installed)"
+        return run_check([zig, "ast-check", file_path], "Zig AST")
+
+    # GNU assembler: .S uses preprocessing; .s does not.
+    if ext in (".S", ".s"):
+        gcc = shutil.which("gcc")
+        if not gcc:
+            return True, "Assembly: validation skipped (gcc not installed)"
+        language = "assembler-with-cpp" if ext == ".S" else "assembler"
+        try:
+            with tempfile.TemporaryDirectory(prefix="astra-asm-") as td:
+                obj = str(Path(td) / "check.o")
+                return run_check([
+                    gcc, "-c", "-x", language,
+                    "-o", obj, file_path
+                ], "Assembly")
+        except Exception as e:
+            return False, f"Assembly validator error: {e}"
+
+    # NASM source.
+    if ext == ".asm":
+        nasm = shutil.which("nasm")
+        if not nasm:
+            return True, "NASM: validation skipped (nasm not installed)"
+        try:
+            with tempfile.TemporaryDirectory(prefix="astra-nasm-") as td:
+                obj = str(Path(td) / "check.o")
+                return run_check([
+                    nasm, "-f", "elf64", "-o", obj, file_path
+                ], "NASM")
+        except Exception as e:
+            return False, f"NASM validator error: {e}"
+
+    # C/C++ source files and standalone headers.
+    c_exts = {".c", ".h"}
+    cpp_exts = {".cpp", ".cc", ".hpp", ".hh"}
+
+    if ext in c_exts | cpp_exts:
+        compiler = shutil.which(
+            "gcc" if ext in c_exts else "g++"
+        )
+        if not compiler:
+            return True, "C/C++: validation skipped (compiler not installed)"
+
+        cmd = list(VERIFY_COMPILER.get(
+            ext, [compiler, "-fsyntax-only"]
+        ))
+        cmd.append("-ffreestanding")
+        cmd.append(
+            "-std=gnu++17" if ext in cpp_exts else "-std=gnu11"
+        )
+
+        if ext == ".h":
+            cmd.extend(["-x", "c"])
+        elif ext in (".hpp", ".hh"):
+            cmd.extend(["-x", "c++"])
+
+        # Discover nearby include directories in the workspace.
         try:
             import os as _os
-            from pathlib import Path as _P
-            _ws = _P(str(config.WORKSPACE))
-            _included = set()
-            # Selalu tambah root
-            cmd.append(f"-I{_ws}")
-            # Scan subdir (kedalaman max 3 untuk performa)
-            for _root, _dirs, _fs in _os.walk(str(_ws)):
-                _rel = _os.path.relpath(_root, str(_ws))
-                if _rel == '.': continue
-                # Skip build/cache dirs
-                if any(x in _rel.lower() for x in ['.git','node_modules','__pycache__','.venv','venv','build/','bin/','dist/','target/']):
+
+            workspace = Path(config.get_workspace()).resolve()
+            skip_dirs = {
+                ".git", "node_modules", "__pycache__", ".venv",
+                "venv", "build", "bin", "dist", "target", ".cache"
+            }
+            include_dirs = {str(workspace)}
+
+            for root, dirs, _files in _os.walk(str(workspace)):
+                dirs[:] = [
+                    d for d in dirs if d.lower() not in skip_dirs
+                ]
+                rel = _os.path.relpath(root, str(workspace))
+                depth = 0 if rel == "." else rel.count(_os.sep) + 1
+
+                if depth > 3:
+                    dirs[:] = []
                     continue
-                _depth = _rel.count(_os.sep) + 1
-                if _depth > 3: continue
-                if _rel not in _included:
-                    cmd.append(f"-I{_root}")
-                    _included.add(_rel)
+
+                include_dirs.add(root)
+
+            for directory in sorted(include_dirs):
+                cmd.append(f"-I{directory}")
         except Exception:
             pass
-    cmd.append(str(path_obj))
-    # === END PATCH ===
-    try:
-        r = subprocess.run(cmd, cwd=str(config.WORKSPACE), capture_output=True, text=True, timeout=30)
-        if r.returncode == 0:
-            return True, "syntax OK"
-        return False, (r.stderr or r.stdout)[:500]
-    except subprocess.TimeoutExpired:
-        return False, "verifikasi timeout"
 
+        cmd.append(file_path)
+        label = "C++" if ext in cpp_exts else "C"
+        return run_check(cmd, label)
+
+    # Objective-C and Objective-C++.
+    if ext in (".m", ".mm"):
+        compiler_name = "clang" if ext == ".m" else "clang++"
+        compiler = shutil.which(compiler_name)
+        if not compiler:
+            return True, (
+                f"{compiler_name}: validation skipped "
+                "(compiler not installed)"
+            )
+
+        language = "objective-c" if ext == ".m" else "objective-c++"
+        cmd = [compiler, "-fsyntax-only", "-x", language]
+        if ext == ".mm":
+            cmd.append("-std=gnu++17")
+        cmd.append(file_path)
+        return run_check(cmd, "Objective-C")
+
+    if ext not in VERIFY_COMPILER:
+        return True, (
+            f"validation skipped: no verifier configured for "
+            f"{ext or 'unknown extension'}"
+        )
+
+    cmd = list(VERIFY_COMPILER[ext])
+    cmd.append(file_path)
+    return run_check(cmd, ext)
 
 def list_dir(path="."):
     p = safe_path(path)
@@ -138,6 +341,7 @@ def read_file(path, offset=0, limit=0):
     else:
         content = p.read_text(errors="replace")
     
+    _mark_read(path)
     if offset > 0 or limit > 0:
         lines = content.split("\n")
         total = len(lines)
@@ -147,7 +351,7 @@ def read_file(path, offset=0, limit=0):
         header = f"[Lines {start+1}-{end} of {total}]\n"
         return header + "\n".join(sliced)
     
-    _mark_read(path); return content
+    return content
 
 
 
@@ -211,9 +415,23 @@ def delete_file(path):
     p = safe_path(path)
     if not p.is_file():
         return f"ERROR: {path} tidak ada"
-    TRASH_DIR.mkdir(parents=True, exist_ok=True)
+    workspace_root = Path(config.get_workspace()).resolve()
+    trash_dir = workspace_root / ".trash"
+
+    if trash_dir.is_symlink():
+        return "ERROR: workspace/.trash tidak boleh berupa symlink"
+
+    try:
+        trash_dir.mkdir(parents=True, exist_ok=True)
+        trash_dir = trash_dir.resolve()
+        trash_dir.relative_to(workspace_root)
+    except ValueError:
+        return "ERROR: lokasi trash berada di luar workspace"
+    except OSError as exc:
+        return f"ERROR membuat trash workspace: {exc}"
+
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    trashed = TRASH_DIR / f"{stamp}_{p.name}"
+    trashed = trash_dir / f"{stamp}_{p.name}"
     shutil.move(str(p), str(trashed))
     log(f"DELETE {path} -> {trashed}")
     return f"OK: {path} dipindah ke trash"
@@ -223,7 +441,8 @@ def grep(pattern, path=".", max_hits=25):
 
     import re as _re
     try:
-        p = Path(path) if Path(path).is_absolute() else ASTRIX_ROOT / path
+        p = safe_path(str(path or "."))
+        workspace_root = Path(config.get_workspace()).resolve()
         if not p.exists():
             return f"ERROR: Path gak ada: {path}"
 
@@ -248,7 +467,7 @@ def grep(pattern, path=".", max_hits=25):
             try:
                 for i, line in enumerate(f.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
                     if regex.search(line):
-                        rel = f.relative_to(ASTRIX_ROOT) if (ASTRIX_ROOT) in f.parents else f
+                        rel = f.relative_to(workspace_root) if workspace_root in f.parents else f
                         hits.append(f"{rel}:{i}: {line.strip()[:200]}")
                         if len(hits) >= max_hits:
                             break
@@ -266,51 +485,218 @@ def grep(pattern, path=".", max_hits=25):
 
 
 def run_command(cmd=None, command=None):
+    """Jalankan satu perintah tanpa shell; batasi operasi berisiko."""
+    import shlex as _shlex
+    import shutil as _shutil
+    from pathlib import Path as _Path
+
     cmd = cmd or command
-    # === ASTRIX PATCH: Auto-detect build command ===
-    if cmd and cmd.strip() in ("make", "make all", "make build"):
+    if not isinstance(cmd, str) or not cmd.strip():
+        return "ERROR: command kosong atau tidak valid"
+
+    # Pertahankan auto-detection build lama.
+    if cmd.strip() in ("make", "make all", "make build"):
         try:
-            _detected = detect_build_command()
-            if _detected != cmd.strip():
-                log(f"[AUTO-BUILD] Mengganti '{cmd}' menjadi '{_detected}'")
-                cmd = _detected
+            detected = detect_build_command()
+            if detected != cmd.strip():
+                log(f"[AUTO-BUILD] Mengganti '{cmd}' menjadi '{detected}'")
+                cmd = detected
         except Exception:
             pass
-    # === END PATCH ===
 
-    parts = cmd.split()
-    if not parts:
-        return "ERROR: command kosong"
-    if parts[0] not in ALLOWED_COMMANDS:
-        return f"ERROR: '{parts[0]}' tidak diizinkan"
     try:
-        r = subprocess.run(cmd, shell=True, cwd=str(config.WORKSPACE),
-                           capture_output=True, text=True, timeout=60)
-        return f"exit={r.returncode}\n{(r.stdout+r.stderr)[:MAX_TOOL_RESULT_CHARS]}"
+        argv = _shlex.split(cmd, posix=True)
+    except ValueError as exc:
+        return f"ERROR: format command tidak valid: {exc}"
+
+    if not argv:
+        return "ERROR: command kosong"
+
+    executable_token = argv[0]
+    executable = _Path(executable_token).name
+
+    # Hanya nama program dari allowlist, bukan path executable pilihan.
+    if executable_token != executable:
+        return "ERROR: path executable langsung tidak diizinkan"
+    if executable not in ALLOWED_COMMANDS:
+        return f"ERROR: '{executable}' tidak diizinkan"
+    if not _shutil.which(executable):
+        return f"ERROR: executable '{executable}' tidak ditemukan"
+
+    # Jangan izinkan chaining atau redirection shell.
+    shell_operators = {";", "&&", "||", "|", ">", ">>", "<", "<<", "&"}
+    if any(token in shell_operators for token in argv):
+        return "ERROR: operator shell tidak diizinkan; panggil tool secara terpisah"
+
+    # Hindari eksekusi kode inline melalui interpreter.
+    if executable in {"python", "python3"} and any(
+        token in {"-c", "--command"} for token in argv[1:]
+    ):
+        return "ERROR: eksekusi kode Python inline tidak diizinkan"
+
+    if executable == "node" and any(
+        token in {"-e", "--eval", "-p", "--print"} for token in argv[1:]
+    ):
+        return "ERROR: eksekusi kode Node inline tidak diizinkan"
+
+    # Mutasi filesystem harus menggunakan tool khusus yang memvalidasi path.
+    direct_mutators = {
+        "rm", "mv", "cp", "mkdir", "touch", "chmod", "chown",
+        "curl", "wget", "zip", "unzip",
+    }
+    if executable in direct_mutators:
+        return (
+            f"ERROR: command '{executable}' dibatasi; "
+            "gunakan tool file yang sesuai atau proses build khusus"
+        )
+
+    if executable == "sed" and any(
+        token in {"-i", "--in-place"} for token in argv[1:]
+    ):
+        return "ERROR: sed in-place tidak diizinkan"
+
+    if executable == "find" and any(
+        token in {
+            "-exec", "-execdir", "-delete", "-ok", "-okdir",
+            "-fprint", "-fprintf", "-fls",
+        }
+        for token in argv[1:]
+    ):
+        return "ERROR: operasi mutasi/eksekusi find tidak diizinkan"
+
+    if executable == "awk" and any(
+        "system(" in token.replace(" ", "")
+        or "system(" in token
+        for token in argv[1:]
+    ):
+        return "ERROR: awk system() tidak diizinkan"
+
+    # Perubahan Git dilakukan melalui alur yang eksplisit, bukan command umum.
+    blocked_git_commands = {
+        "add", "commit", "reset", "clean", "checkout", "restore",
+        "rm", "apply", "stash", "rebase", "merge", "cherry-pick",
+        "revert",
+    }
+    if executable == "git" and len(argv) > 1:
+        if argv[1] in blocked_git_commands:
+            return f"ERROR: git {argv[1]} dibatasi di run_command"
+
+    workspace = _Path(config.get_workspace()).resolve()
+    self_root = _Path(SELF_ROOT).resolve()
+
+    # Jika workspace sama dengan, di dalam, atau menaungi source Astrix,
+    # izinkan inspeksi saja melalui runner umum.
+    overlaps_self_tree = (
+        workspace == self_root
+        or workspace in self_root.parents
+        or self_root in workspace.parents
+    )
+
+    if overlaps_self_tree:
+        readonly_commands = {
+            "ls", "cat", "grep", "pwd", "find", "head", "tail", "wc",
+            "df", "free", "uname", "tree", "ps", "top", "echo", "git",
+        }
+
+        if executable not in readonly_commands:
+            return (
+                f"ERROR: '{executable}' dibatasi ketika workspace "
+                "mencakup source Astrix AI; gunakan tool khusus"
+            )
+
+        if executable == "git":
+            readonly_git_commands = {
+                "status", "diff", "log", "show", "branch",
+                "rev-parse", "ls-files",
+            }
+            if len(argv) < 2 or argv[1] not in readonly_git_commands:
+                return "ERROR: hanya subcommand Git read-only yang diizinkan"
+
+    try:
+        result = subprocess.run(
+            argv,
+            shell=False,
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        return f"exit={result.returncode}\\n{output[:MAX_TOOL_RESULT_CHARS]}"
     except subprocess.TimeoutExpired:
         return "ERROR: timeout 60s"
-
+    except Exception as exc:
+        return f"ERROR run_command: {exc}"
 
 def build_project(target="build", jobs=4, timeout=180):
-    """Run make <target> -j<jobs>, return status + output concise."""
+    """Build target pada workspace aktif tanpa menjalankan shell."""
+    import re as _re
+    import shutil as _shutil
 
-    cmd = f"make {target} -j{jobs}"
+    if not isinstance(target, str):
+        return "ERROR: target harus berupa teks"
+
+    target = target.strip()
+    if (
+        not target
+        or len(target) > 128
+        or target.startswith("-")
+        or not _re.fullmatch(r"[A-Za-z0-9_./:@+-]+", target)
+    ):
+        return "ERROR: target tidak valid; gunakan nama target sederhana"
+
     try:
-        r = subprocess.run(cmd, shell=True, cwd=str(config.WORKSPACE),
-                           capture_output=True, text=True, timeout=timeout)
-        out = (r.stdout + r.stderr)
+        if isinstance(jobs, bool) or isinstance(timeout, bool):
+            raise ValueError("boolean tidak valid")
 
-        errors = [l for l in out.split("\n") if "error:" in l.lower() or "fatal error" in l.lower()]
-        warnings = [l for l in out.split("\n") if "warning:" in l.lower()]
+        jobs = int(jobs)
+        timeout = int(timeout)
+    except (TypeError, ValueError, OverflowError):
+        return "ERROR: jobs dan timeout harus berupa bilangan bulat"
 
-        status = "SUCCESS" if r.returncode == 0 else "FAILED"
+    if not 1 <= jobs <= 64:
+        return "ERROR: jobs harus berada pada rentang 1-64"
+    if not 1 <= timeout <= 1800:
+        return "ERROR: timeout harus berada pada rentang 1-1800 detik"
 
-        boot_path = ASTRIX_ROOT / "BOOTX64.EFI"
-        efi_exists = boot_path.exists()
+    try:
+        workspace = config.resolve_workspace_path(config.get_workspace())
+        make_executable = _shutil.which("make")
+
+        if not make_executable:
+            return "ERROR: executable make tidak ditemukan"
+
+        cmd = [make_executable, f"-j{jobs}", target]
+        result = subprocess.run(
+            cmd,
+            shell=False,
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+        output = (result.stdout or "") + (result.stderr or "")
+        errors = [
+            line for line in output.splitlines()
+            if "error:" in line.lower() or "fatal error" in line.lower()
+        ]
+        warnings = [
+            line for line in output.splitlines()
+            if "warning:" in line.lower()
+        ]
+
+        status = "SUCCESS" if result.returncode == 0 else "FAILED"
+
+        # Artefak diperiksa pada workspace yang sedang dibangun,
+        # bukan pada direktori source aplikasi Astrix.
+        boot_path = workspace / "BOOTX64.EFI"
+        efi_exists = boot_path.is_file()
         efi_size = boot_path.stat().st_size if efi_exists else 0
 
-        summary = f"""BUILD {status} (exit={r.returncode})
-Command: {cmd}
+        summary = f"""BUILD {status} (exit={result.returncode})
+Workspace: {workspace}
+Command: make -j{jobs} {target}
 Errors: {len(errors)}, Warnings: {len(warnings)}
 BOOTX64.EFI: {'ADA ' + str(efi_size) + ' bytes' if efi_exists else 'TIDAK ADA'}"""
 
@@ -318,19 +704,16 @@ BOOTX64.EFI: {'ADA ' + str(efi_size) + ' bytes' if efi_exists else 'TIDAK ADA'}"
             summary += "\n\n=== ERRORS (max 10) ===\n" + "\n".join(errors[:10])
         if warnings and len(warnings) <= 5:
             summary += "\n\n=== WARNINGS ===\n" + "\n".join(warnings[:5])
-
-        if r.returncode == 0:
-            tail = "\n".join(out.split("\n")[-10:])
+        if result.returncode == 0:
+            tail = "\n".join(output.splitlines()[-10:])
             summary += f"\n\n=== TAIL OUTPUT ===\n{tail}"
 
         return summary[:MAX_TOOL_RESULT_CHARS]
+
     except subprocess.TimeoutExpired:
         return f"BUILD TIMEOUT setelah {timeout}s"
-    except Exception as e:
-        return f"BUILD ERROR: {e}"
-
-
-
+    except Exception as exc:
+        return f"ERROR build_project: {type(exc).__name__}: {exc}"
 def run_tests_tool():
     """Jalanin test suite project."""
 
@@ -548,27 +931,69 @@ def delete_file(path):
 
 
 def _check_self_path(path):
-    """Validate self-edit path: should be whitelisted, not blocked."""
-
+    """Validasi self-edit setelah path diselesaikan secara kanonis."""
     from config import SELF_ROOT, SELF_EDIT_WHITELIST, SELF_EDIT_BLOCK
-    path = str(path).strip()
-    if path.startswith("/") or path.startswith("~"):
-        raise PermissionError(f"Path absolut gak boleh: {path}")
-    for blocked in SELF_EDIT_BLOCK:
-        if path.startswith(blocked):
-            raise PermissionError(f"File '{blocked}' DIBLOK. Edit manual dari terminal.")
+
+    raw_text = str(path).strip()
+    if not raw_text or raw_text.startswith("~"):
+        raise PermissionError("Path self-edit kosong atau tidak valid.")
+
+    raw = Path(raw_text)
+    if raw.is_absolute():
+        raise PermissionError(f"Path absolut tidak diizinkan: {raw_text}")
+
+    root = Path(SELF_ROOT).resolve()
+    full = (root / raw).resolve()
+
+    try:
+        relative = full.relative_to(root)
+    except ValueError:
+        raise PermissionError(
+            f"Path keluar SELF_ROOT setelah resolusi: {raw_text}"
+        )
+
+    parts = relative.parts
+    relative_text = relative.as_posix()
+
+    # Terapkan blokir terhadap path kanonis, bukan input mentah.
+    for item in SELF_EDIT_BLOCK:
+        blocked_name = str(item).strip("/")
+        if blocked_name == ".env":
+            blocked = any(
+                part == ".env" or part.startswith(".env.")
+                for part in parts
+            )
+        else:
+            blocked = blocked_name in parts
+
+        if blocked:
+            raise PermissionError(
+                f"Self-edit diblokir untuk path: {relative_text}"
+            )
+
+    # Entri berakhiran '/' berarti direktori beserta turunannya.
     allowed = False
-    for wl in SELF_EDIT_WHITELIST:
-        if path.startswith(wl):
+    for item in SELF_EDIT_WHITELIST:
+        rule = str(item)
+        is_directory = rule.endswith("/")
+        normalized = rule.rstrip("/")
+
+        if is_directory:
+            if (
+                relative_text == normalized
+                or relative_text.startswith(normalized + "/")
+            ):
+                allowed = True
+                break
+        elif relative_text == normalized:
             allowed = True
             break
+
     if not allowed:
-        raise PermissionError(f"File '{path}' gak ada di whitelist self-edit.")
-    full = (SELF_ROOT / path).resolve()
-    try:
-        full.relative_to(SELF_ROOT.resolve())
-    except ValueError:
-        raise PermissionError(f"Path keluar SELF_ROOT: {path}")
+        raise PermissionError(
+            f"Path '{relative_text}' tidak ada di whitelist self-edit."
+        )
+
     return full
 
 
@@ -588,6 +1013,47 @@ def self_read(path):
         return f"ERROR self_read: {e}"
 
 
+def _create_self_backup(full):
+    """Buat backup unik tanpa menimpa backup yang sudah ada."""
+    import os
+    import shutil
+    import time
+    from pathlib import Path
+
+    full = Path(full)
+
+    for attempt in range(100):
+        name = f"{full.name}.bak.{time.time_ns()}.{attempt}"
+        backup = full.with_name(name)
+
+        try:
+            fd = os.open(
+                backup,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+            )
+        except FileExistsError:
+            continue
+
+        try:
+            with full.open("rb") as src:
+                with os.fdopen(fd, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+            return backup
+        except BaseException:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            try:
+                backup.unlink()
+            except OSError:
+                pass
+            raise
+
+    raise FileExistsError("Tidak bisa membuat nama backup unik.")
+
+
 def self_replace(path, old_text, new_text):
     """Replace with backup + syntax check + rollback."""
 
@@ -600,24 +1066,57 @@ def self_replace(path, old_text, new_text):
         original = full.read_text(encoding="utf-8")
         if old_text not in original:
             return f"ERROR: old_text gak ketemu di {path}"
-        bak = full.with_suffix(full.suffix + f".bak.{int(_t.time())}")
-        shutil.copy2(full, bak)
+        bak = _create_self_backup(full)
         new_content = original.replace(old_text, new_text, 1)
         full.write_text(new_content, encoding="utf-8")
         if str(full).endswith(".py"):
-            r = subprocess.run(["python3", "-c", f"import ast; ast.parse(open('{full}').read())"],
-                              capture_output=True, text=True, timeout=10)
+            r = subprocess.run(
+                [
+                    "python3",
+                    "-c",
+                    (
+                        "import ast, pathlib, sys; "
+                        "ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))"
+                    ),
+                    str(full),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
             if r.returncode != 0:
                 shutil.copy2(bak, full)
                 return f"SYNTAX ERROR - rollback. {r.stderr[:400]}"
-        try:
-            subprocess.run(["git", "add", str(full)], cwd=str(SELF_ROOT), capture_output=True, timeout=10)
-            subprocess.run(["git", "commit", "-m", f"self-edit: {path}", "--no-verify"],
-                          cwd=str(SELF_ROOT), capture_output=True, timeout=10)
-        except Exception:
-            pass
         added = new_content.count("\n") - original.count("\n")
-        return f"OK: {path} diedit ({added:+d} lines). Backup: {bak.name}"
+        commit_note = "Git commit belum dibuat."
+        try:
+            relative = full.relative_to(Path(SELF_ROOT).resolve()).as_posix()
+            commit = subprocess.run(
+                [
+                    "git", "commit", "--only",
+                    "-m", f"self-edit: {relative}",
+                    "--", relative,
+                ],
+                cwd=str(SELF_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if commit.returncode == 0:
+                commit_note = "Git commit berhasil; hooks tidak dilewati."
+            else:
+                detail = (commit.stderr or commit.stdout or "").strip()
+                detail = detail.replace("\n", " ")[:240]
+                commit_note = (
+                    f"Git commit gagal (exit {commit.returncode}): {detail}"
+                )
+        except Exception as exc:
+            commit_note = f"Git commit gagal: {exc}"
+
+        return (
+            f"OK: {path} diedit ({added:+d} lines). "
+            f"Backup: {bak.name}. {commit_note}"
+        )
     except PermissionError as e:
         return f"ERROR: {e}"
     except Exception as e:
@@ -633,13 +1132,24 @@ def self_write(path, content):
         full = _check_self_path(path)
         bak = None
         if full.exists():
-            bak = full.with_suffix(full.suffix + f".bak.{int(_t.time())}")
-            shutil.copy2(full, bak)
+            bak = _create_self_backup(full)
         full.parent.mkdir(parents=True, exist_ok=True)
         full.write_text(content, encoding="utf-8")
         if str(full).endswith(".py"):
-            r = subprocess.run(["python3", "-c", f"import ast; ast.parse(open('{full}').read())"],
-                              capture_output=True, text=True, timeout=10)
+            r = subprocess.run(
+                [
+                    "python3",
+                    "-c",
+                    (
+                        "import ast, pathlib, sys; "
+                        "ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))"
+                    ),
+                    str(full),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
             if r.returncode != 0:
                 if bak: shutil.copy2(bak, full)
                 return f"SYNTAX ERROR - {r.stderr[:400]}"
@@ -688,14 +1198,21 @@ def self_status():
 _read_files = set()
 _edited_files = set()
 
+def _path_key(path):
+    try:
+        return str(safe_path(path).resolve())
+    except Exception:
+        return str(path)
+
+
 def _mark_read(path):
-    _read_files.add(str(path))
+    _read_files.add(_path_key(path))
 
 def _mark_edited(path):
     _edited_files.add(str(path))
 
 def was_read(path):
-    return str(path) in _read_files
+    return _path_key(path) in _read_files
 
 def reset_guard():
     _read_files.clear()
@@ -845,7 +1362,7 @@ def git_status():
     """Show git status short."""
     import subprocess as _sp
     try:
-        r = _sp.run(["git", "status", "--short"], cwd=str(config.WORKSPACE),
+        r = _sp.run(["git", "status", "--short"], cwd=str(config.get_workspace()),
                     capture_output=True, text=True, timeout=10)
         return r.stdout or "(clean)"
     except Exception as e:
@@ -858,7 +1375,7 @@ def git_diff(path=""):
     try:
         cmd = ["git", "diff"]
         if path: cmd.append(path)
-        r = _sp.run(cmd, cwd=str(config.WORKSPACE),
+        r = _sp.run(cmd, cwd=str(config.get_workspace()),
                     capture_output=True, text=True, timeout=10)
         return (r.stdout or "(no diff)")[:3000]
     except Exception as e:
@@ -897,7 +1414,7 @@ def analyze_workspace(keyword, max_files=15, preview_lines=30):
     """Cari file by keyword, baca preview. Return struktur ringkas."""
     import os as _os
     from pathlib import Path as _P
-    ws = _P(str(config.WORKSPACE))
+    ws = _P(str(config.get_workspace()))
     if not ws.exists():
         return f"ERROR: workspace {ws} tidak ada"
 
@@ -943,7 +1460,7 @@ def analyze_workspace(keyword, max_files=15, preview_lines=30):
 def detect_build_command():
     """Deteksi command build yang tepat berdasarkan file di workspace."""
     from pathlib import Path
-    ws = Path(config.WORKSPACE)
+    ws = Path(config.get_workspace())
     
     if (ws / "Makefile").exists():
         content = (ws / "Makefile").read_text(errors="ignore")
@@ -964,14 +1481,204 @@ def detect_build_command():
     else:
         return "make"
 
+
+def validate_project(path=".", timeout=180, jobs=4):
+    """Validate a project using detected manifests, without shell=True."""
+    import json as _json
+    import shlex as _shlex
+
+    try:
+        timeout = max(10, min(int(timeout), 600))
+        jobs = max(1, min(int(jobs), 32))
+        target = safe_path(str(path))
+        if target.is_file():
+            target = target.parent
+        if not target.is_dir():
+            return f"PROJECT VALIDATION FAILED: bukan direktori: {path}"
+
+        root = target.resolve()
+        workspace = Path(config.get_workspace()).resolve()
+        try:
+            root.relative_to(workspace)
+        except ValueError:
+            return "PROJECT VALIDATION FAILED: direktori di luar workspace."
+    except Exception as e:
+        return f"PROJECT VALIDATION FAILED: {e}"
+
+    checks = []
+    skips = []
+    errors = []
+    manifests_found = []
+
+    cargo_manifest = root / "Cargo.toml"
+    go_manifest = root / "go.mod"
+    tsconfig = root / "tsconfig.json"
+    package_json = root / "package.json"
+    cmake_file = root / "CMakeLists.txt"
+
+    if cargo_manifest.is_file():
+        manifests_found.append("Cargo.toml")
+        cargo = shutil.which("cargo")
+        if cargo:
+            checks.append((
+                "Rust / Cargo",
+                [cargo, "check", "--workspace", "--all-targets"]
+            ))
+        else:
+            skips.append("Rust: cargo tidak tersedia.")
+
+    if go_manifest.is_file():
+        manifests_found.append("go.mod")
+        go = shutil.which("go")
+        if go:
+            checks.append(("Go", [go, "build", "./..."]))
+        else:
+            skips.append("Go: toolchain go tidak tersedia.")
+
+    if tsconfig.is_file():
+        manifests_found.append("tsconfig.json")
+        tsc = shutil.which("tsc")
+        if not tsc:
+            candidate = (
+                Path.home()
+                / ".local/share/astrix-toolchain/node_modules/.bin/tsc"
+            )
+            if candidate.is_file():
+                tsc = str(candidate)
+
+        if tsc:
+            checks.append((
+                "TypeScript",
+                [tsc, "--noEmit", "--pretty", "false",
+                 "--project", str(tsconfig.resolve())]
+            ))
+        else:
+            skips.append("TypeScript: compiler tsc tidak tersedia.")
+
+    # Run the package's declared build script only when one exists.
+    # npm scripts execute project-defined commands.
+    if package_json.is_file():
+        manifests_found.append("package.json")
+        try:
+            package = _json.loads(package_json.read_text(encoding="utf-8"))
+            scripts = package.get("scripts", {})
+            if not isinstance(scripts, dict):
+                raise ValueError("'scripts' harus berupa JSON object.")
+            if scripts.get("build"):
+                npm = shutil.which("npm")
+                if npm:
+                    checks.append(("npm build", [npm, "run", "build"]))
+                else:
+                    skips.append("npm: executable npm tidak tersedia.")
+        except Exception as e:
+            errors.append(f"package.json tidak valid: {e}")
+
+    if cmake_file.is_file():
+        manifests_found.append("CMakeLists.txt")
+        cmake = shutil.which("cmake")
+        build_dir = root / "build"
+        cache = build_dir / "CMakeCache.txt"
+
+        if not cmake:
+            skips.append("CMake: executable cmake tidak tersedia.")
+        elif cache.is_file():
+            checks.append((
+                "CMake",
+                [cmake, "--build", str(build_dir), "--parallel", str(jobs)]
+            ))
+        else:
+            skips.append(
+                "CMake: build/ belum dikonfigurasi; "
+                "tidak menjalankan konfigurasi otomatis."
+            )
+
+    if not manifests_found:
+        if (root / "Makefile").is_file():
+            return (
+                "PROJECT VALIDATION SKIPPED\n"
+                f"Path: {root}\n"
+                "Makefile terdeteksi. Gunakan build_project(target, jobs) "
+                "agar target build yang sudah ada tetap dipakai."
+            )
+        return (
+            "PROJECT VALIDATION SKIPPED\n"
+            f"Path: {root}\n"
+            "Tidak ditemukan manifest yang didukung "
+            "(Cargo.toml, go.mod, tsconfig.json, package.json, "
+            "atau CMakeLists.txt)."
+        )
+
+    results = []
+    executed = 0
+    failed = bool(errors)
+
+    for error in errors:
+        results.append(f"FAILED: {error}")
+
+    for message in skips:
+        results.append(f"SKIPPED: {message}")
+
+    for label, cmd in checks:
+        display = _shlex.join(cmd)
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                shell=False,
+            )
+            executed += 1
+
+            if result.returncode == 0:
+                results.append(f"SUCCESS [{label}]: {display}")
+            else:
+                failed = True
+                output = (result.stdout + "\n" + result.stderr).strip()
+                tail = "\n".join(output.splitlines()[-12:])
+                results.append(
+                    f"FAILED [{label}] (exit={result.returncode}): {display}"
+                    + (f"\n{tail[:1800]}" if tail else "")
+                )
+        except FileNotFoundError:
+            skips.append(f"{label}: executable tidak ditemukan.")
+            results.append(f"SKIPPED [{label}]: executable tidak ditemukan.")
+        except subprocess.TimeoutExpired:
+            failed = True
+            results.append(f"FAILED [{label}]: timeout setelah {timeout}s.")
+        except Exception as e:
+            failed = True
+            results.append(f"FAILED [{label}]: {e}")
+
+    if failed:
+        status = "FAILED"
+    elif executed == 0:
+        status = "SKIPPED"
+    elif skips:
+        status = "PARTIAL"
+    else:
+        status = "SUCCESS"
+
+    header = [
+        f"PROJECT VALIDATION {status}",
+        f"Path: {root}",
+        "Manifests: " + ", ".join(manifests_found),
+        f"Executed checks: {executed}",
+    ]
+
+    return ("\n".join(header + results))[:MAX_TOOL_RESULT_CHARS]
+
+
 TOOLS = {
+    "validate_project": validate_project,
     "web_search": web_search,
     "browse_url": browse_url,
     "list_dir": list_dir,
     "read_file": read_file,
     "create_file": create_file,
     "write_file": write_file,
-    "replace_text": replace_text,
+    "replace_text": guard_replace_text,
     "delete_file": delete_file,
     "grep": grep,
     "run_command": run_command,

@@ -503,7 +503,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 web_search: isWebSearch, system_prompt: sysP, language: s.language || 'id',
                 temperature: s.temp ?? 0.7, max_tokens: s.maxTokens ?? 4096,
                 provider: (s.baseUrl ? 'custom' : (s.provider || 'omniroute')), base_url: s.baseUrl || '',
-                api_key: s.apiKey || '', model_override: s.modelOverride || (selectedModel?.key || '')
+                api_key: s.apiKey || '', model_override: s.modelOverride || (selectedModel?.key || ''),
+                workspace: s.workspace || ''
             };
 
             try {

@@ -49,6 +49,7 @@ Sebelum setiap aksi, MIKIR DULU:
 - web_search(query) — cari informasi terbaru di internet (DuckDuckGo)
 - browse_url(url) — baca teks lengkap dari sebuah website
 - build_project(target, jobs) — **WAJIB** dipanggil setelah bikin/ubah .c atau .h. Return SUCCESS/FAILED + error list
+- validate_project(path) — cek build proyek berdasarkan manifest (Rust, Go, TypeScript, npm, CMake); hasil bisa SUCCESS/FAILED/PARTIAL/SKIPPED
 
 - self_read(path) — baca file astrix-ai (whitelist only)
 - self_replace(path, old_text, new_text) — replace dengan auto backup + syntax check

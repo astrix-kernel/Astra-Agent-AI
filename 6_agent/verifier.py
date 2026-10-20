@@ -4,12 +4,11 @@ import re, subprocess
 from pathlib import Path
 from tools import safe_path, _verify_syntax
 
-ASTRIX_ROOT = ASTRIX_ROOT
+from config import ASTRIX_ROOT
 
 
 def verify_task(task_desc, files_touched, state=None):
     """
-from config import ASTRIX_ROOT
     Cek fakta apakah task beneran selesai.
     Return: (ok: bool, issues: list, evidence: dict)
     """

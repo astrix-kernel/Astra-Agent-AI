@@ -321,7 +321,7 @@ async def chat_stream(req: ChatReq):
         
         async def goal_gen():
             try:
-                result = run_multi_agent(task, coder_mode=True)
+                result = run_multi_agent(task, coder_mode=True, workspace=req.workspace or None)
                 yield f"data: {_json.dumps({'type': 'chunk', 'text': result})}\n\n"
             except Exception as e:
                 yield f"data: {_json.dumps({'type': 'chunk', 'text': '❌ Error: ' + str(e)})}\n\n"
@@ -1065,56 +1065,41 @@ class AgentReq(BaseModel):
     mode: str = "medium"
 
 
+def _agent_manager_unavailable():
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=501,
+        content={
+            "ok": False,
+            "code": "agent_manager_unavailable",
+            "error": (
+                "Agent manager belum tersedia. "
+                "Fungsi spawn, list, stop, dan get belum diimplementasikan."
+            ),
+            "agents": [],
+        },
+    )
+
+
 @app.post("/api/agents/spawn")
 async def agents_spawn(req: AgentReq):
-    from multi_agent import spawn
-    try:
-        aid = spawn(req.goal, req.scope, model=req.model or None, mode=req.mode)
-        broadcast(f"Agent spawned: {aid} @ {req.scope}", "system")
-        return {"ok": True, "agent_id": aid}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    return _agent_manager_unavailable()
 
 
 @app.get("/api/agents/list")
 async def agents_list():
-    from multi_agent import list_agents
-    agents = []
-    for a in list_agents():
-        agents.append({
-            "id": a["id"],
-            "goal": a["goal"][:200],
-            "scope": a["scope"],
-            "status": a["status"],
-            "tasks_done": a["tasks_done"],
-            "tasks_total": a["tasks_total"],
-            "current_task": a["current_task"][:100],
-            "log_tail": [x["text"] for x in a["log"][-5:]],
-            "result": a.get("result"),
-        })
-    return {"agents": agents}
+    return _agent_manager_unavailable()
 
 
 @app.post("/api/agents/stop")
 async def agents_stop(req: dict):
-    from multi_agent import stop
-    aid = req.get("agent_id", "")
-    ok, msg = stop(aid)
-    return {"ok": ok, "msg": msg}
+    return _agent_manager_unavailable()
 
 
 @app.get("/api/agents/{aid}")
 async def agents_detail(aid: str):
-    from multi_agent import get
-    a = get(aid)
-    if not a:
-        return {"error": "nggak ada"}
-    return {
-        "id": a["id"], "goal": a["goal"], "scope": a["scope"],
-        "status": a["status"], "tasks_done": a["tasks_done"],
-        "tasks_total": a["tasks_total"], "current_task": a["current_task"],
-        "log": a["log"][-50:], "result": a.get("result"), "error": a.get("error"),
-    }
+    return _agent_manager_unavailable()
 
 
 class TermReq(BaseModel):
@@ -1520,43 +1505,68 @@ async def validate_api_key(req: dict):
 
 
 
+
 @app.get("/api/workspace/list")
 async def workspace_list(path: str = None):
-    """List folder & file dalam path — buat file browser."""
+    """List file/folder hanya dalam workspace root yang diizinkan."""
     import os
-    if not path:
-        path = os.path.expanduser("~")
-    
+    from pathlib import Path
+    from config import (
+        get_workspace,
+        is_workspace_path_allowed,
+        resolve_workspace_path,
+    )
+
+    # Default ke home hanya jika root home memang diizinkan.
+    requested = path
+    if not requested:
+        home = Path.home()
+        requested = str(
+            home if is_workspace_path_allowed(home) else get_workspace()
+        )
+
     try:
-        path = os.path.abspath(os.path.expanduser(path))
-        if not os.path.isdir(path):
-            return {"error": f"Path bukan folder: {path}"}
-        
+        target = resolve_workspace_path(requested)
+    except PermissionError as e:
+        return {"error": str(e), "code": "workspace_forbidden"}
+    except (ValueError, OSError, RuntimeError) as e:
+        return {"error": str(e), "code": "invalid_workspace"}
+
+    try:
         items = []
-        for entry in os.scandir(path):
-            if entry.name.startswith('.'): continue
-            try:
-                is_dir = entry.is_dir()
-                size = 0 if is_dir else entry.stat().st_size
-                items.append({
-                    "name": entry.name,
-                    "is_dir": is_dir,
-                    "size": size,
-                    "size_human": _format_size(size) if not is_dir else ""
-                })
-            except (PermissionError, OSError):
-                continue
-        
-        items.sort(key=lambda x: (not x["is_dir"], x["name"].lower()))
-        
+        with os.scandir(target) as entries:
+            for entry in entries:
+                if entry.name.startswith(".") or entry.is_symlink():
+                    continue
+                try:
+                    is_dir = entry.is_dir(follow_symlinks=False)
+                    size = 0 if is_dir else entry.stat(
+                        follow_symlinks=False
+                    ).st_size
+                    items.append({
+                        "name": entry.name,
+                        "is_dir": is_dir,
+                        "size": size,
+                        "size_human": _format_size(size) if not is_dir else "",
+                    })
+                except (PermissionError, OSError):
+                    continue
+
+        items.sort(key=lambda item: (not item["is_dir"], item["name"].lower()))
+
+        parent = target.parent
+        parent_value = (
+            str(parent) if is_workspace_path_allowed(parent) else None
+        )
+
         return {
-            "current_path": path,
-            "parent": os.path.dirname(path) if path != "/" else None,
+            "current_path": str(target),
+            "parent": parent_value,
             "items": items,
-            "total": len(items)
+            "total": len(items),
         }
-    except Exception as e:
-        return {"error": str(e)}
+    except (PermissionError, OSError) as e:
+        return {"error": str(e), "code": "workspace_read_failed"}
 
 
 def _format_size(size):
@@ -1567,92 +1577,174 @@ def _format_size(size):
     return f"{size:.1f} PB"
 
 
+
 @app.post("/api/workspace/validate")
 async def workspace_validate(req: dict):
-    """Validasi folder workspace + hitung statistik."""
+    """Validasi proyek hanya di dalam workspace root yang diizinkan."""
     import os
-    path = (req.get("path") or "").strip()
-    if not path:
+    from pathlib import Path
+    from config import resolve_workspace_path
+
+    requested = (req.get("path") or "").strip()
+    if not requested:
         return {"valid": False, "error": "Path kosong"}
-    
+
     try:
-        path = os.path.abspath(os.path.expanduser(path))
-        if not os.path.isdir(path):
-            return {"valid": False, "error": f"Bukan folder: {path}"}
-        
-        total_files = 0
-        total_size = 0
-        MAX_SCAN = 5000
-        for root, dirs, files in os.walk(path):
-            dirs[:] = [d for d in dirs if d not in ['.git', 'node_modules', 'build', '__pycache__', '.venv', 'venv']]
-            for f in files:
-                if total_files >= MAX_SCAN: break
-                try:
-                    fp = os.path.join(root, f)
-                    total_size += os.path.getsize(fp)
-                    total_files += 1
-                except: pass
-            if total_files >= MAX_SCAN: break
-        
-        project_type = "Unknown"
-        markers = {
-            "Makefile": "C/C++ Project",
-            "Cargo.toml": "Rust",
-            "package.json": "Node.js",
-            "requirements.txt": "Python",
-            "pyproject.toml": "Python (pyproject)",
-            "go.mod": "Go",
-            "pom.xml": "Java Maven",
-            "build.gradle": "Java Gradle",
-            "CMakeLists.txt": "CMake",
-            "docker-compose.yml": "Docker",
-            "docker-compose.yaml": "Docker",
-            ".git": "Git Repo"
-        }
-        for marker, ptype in markers.items():
-            if os.path.exists(os.path.join(path, marker)):
-                project_type = ptype
-                break
-        
+        target = resolve_workspace_path(requested)
+    except PermissionError as e:
         return {
-            "valid": True,
-            "path": path,
-            "name": os.path.basename(path),
-            "total_files": total_files,
-            "total_size": total_size,
-            "size_human": _format_size(total_size),
-            "project_type": project_type
+            "valid": False,
+            "error": str(e),
+            "code": "workspace_forbidden",
         }
-    except Exception as e:
-        return {"valid": False, "error": str(e)}
+    except (ValueError, OSError, RuntimeError) as e:
+        return {
+            "valid": False,
+            "error": str(e),
+            "code": "invalid_workspace",
+        }
+
+    total_files = 0
+    total_size = 0
+    max_scan = 5000
+    excluded_dirs = {
+        ".git", "node_modules", "build", "__pycache__",
+        ".venv", "venv", "target", "dist",
+    }
+
+    try:
+        for root, dirs, files in os.walk(target, followlinks=False):
+            dirs[:] = [
+                name for name in dirs
+                if name not in excluded_dirs
+                and not (Path(root) / name).is_symlink()
+            ]
+
+            for filename in files:
+                if total_files >= max_scan:
+                    break
+                fp = Path(root) / filename
+                try:
+                    if fp.is_symlink() or not fp.is_file():
+                        continue
+                    total_size += fp.stat().st_size
+                    total_files += 1
+                except (PermissionError, OSError):
+                    continue
+
+            if total_files >= max_scan:
+                break
+    except (PermissionError, OSError) as e:
+        return {
+            "valid": False,
+            "error": f"Gagal membaca workspace: {e}",
+            "code": "workspace_read_failed",
+        }
+
+    project_type = "Unknown"
+    markers = {
+        "Makefile": "C/C++ Project",
+        "Cargo.toml": "Rust",
+        "package.json": "Node.js",
+        "requirements.txt": "Python",
+        "pyproject.toml": "Python (pyproject)",
+        "go.mod": "Go",
+        "pom.xml": "Java Maven",
+        "build.gradle": "Java Gradle",
+        "CMakeLists.txt": "CMake",
+        "docker-compose.yml": "Docker",
+        "docker-compose.yaml": "Docker",
+        ".git": "Git Repo",
+    }
+
+    for marker, detected_type in markers.items():
+        if (target / marker).exists():
+            project_type = detected_type
+            break
+
+    return {
+        "valid": True,
+        "path": str(target),
+        "name": target.name,
+        "total_files": total_files,
+        "total_size": total_size,
+        "size_human": _format_size(total_size),
+        "project_type": project_type,
+        "truncated": total_files >= max_scan,
+    }
 
 
 @app.get("/api/workspace/home")
 async def workspace_home():
-    """Get home directory + common project folders."""
-    import os
-    home = os.path.expanduser("~")
-    
-    suggestions = []
-    common = ["Projects", "Documents", "Desktop", "Downloads", "workspace", "code"]
-    for name in common:
-        p = os.path.join(home, name)
-        if os.path.isdir(p):
-            suggestions.append({"name": name, "path": p})
-    
-    try:
-        for entry in os.scandir(home):
-            if entry.is_dir() and not entry.name.startswith('.'):
-                if entry.name in [s["name"] for s in suggestions]: continue
-                if os.path.exists(os.path.join(entry.path, '.git')) or \
-                   os.path.exists(os.path.join(entry.path, 'Makefile')) or \
-                   os.path.exists(os.path.join(entry.path, 'package.json')):
-                    suggestions.append({"name": entry.name, "path": entry.path})
-    except: pass
-    
-    return {"home": home, "suggestions": suggestions}
+    """Daftar lokasi awal dari root workspace yang diizinkan."""
+    from pathlib import Path
+    from config import (
+        get_allowed_workspace_roots,
+        is_workspace_path_allowed,
+    )
 
+    home = Path.home().resolve()
+    home_allowed = is_workspace_path_allowed(home)
+    suggestions = {}
 
+    def add_suggestion(candidate):
+        try:
+            candidate = Path(candidate).resolve()
+            if (
+                candidate.is_dir()
+                and is_workspace_path_allowed(candidate)
+                and candidate not in suggestions
+            ):
+                suggestions[candidate] = {
+                    "name": candidate.name or str(candidate),
+                    "path": str(candidate),
+                }
+        except (OSError, RuntimeError, ValueError):
+            pass
+
+    # Jika home diizinkan, sediakan shortcut folder umum dan proyek.
+    if home_allowed:
+        for name in [
+            "Projects", "Documents", "Desktop", "Downloads",
+            "workspace", "code",
+        ]:
+            add_suggestion(home / name)
+
+        try:
+            for entry in home.iterdir():
+                if (
+                    entry.name.startswith(".")
+                    or entry.is_symlink()
+                    or not entry.is_dir()
+                ):
+                    continue
+
+                if (
+                    (entry / ".git").exists()
+                    or (entry / "Makefile").is_file()
+                    or (entry / "package.json").is_file()
+                    or (entry / "Cargo.toml").is_file()
+                    or (entry / "go.mod").is_file()
+                    or (entry / "CMakeLists.txt").is_file()
+                ):
+                    add_suggestion(entry)
+        except (PermissionError, OSError):
+            pass
+
+    # Tampilkan semua root yang dikonfigurasi dan tepercaya,
+    # termasuk root di luar home bila admin mengizinkannya.
+    for allowed_root in get_allowed_workspace_roots():
+        add_suggestion(allowed_root)
+
+    ordered = sorted(
+        suggestions.values(),
+        key=lambda item: item["name"].lower(),
+    )
+    return {
+        "home": str(home) if home_allowed else None,
+        "roots": [str(root) for root in get_allowed_workspace_roots()],
+        "suggestions": ordered,
+    }
 
 @app.get("/api/memory/list")
 async def memory_list():
@@ -1730,7 +1822,7 @@ async def multi_agent_run(req: dict):
         result = await loop.run_in_executor(
             None, 
             lambda: run_multi_agent(goal, on_log=on_log, max_tasks=max_tasks,
-                                    base_url=base_url, api_key=api_key, model=model, coder_mode=coder_mode)
+                                    base_url=base_url, api_key=api_key, model=model, coder_mode=coder_mode, workspace=req.get("workspace") or None)
         )
         result["logs"] = logs
         return result
@@ -1795,7 +1887,23 @@ async def handle_command(req: CommandReq):
 
     cmd = req.command.lower().lstrip('/')
     args = req.args.strip()
-    workspace = req.workspace or str(_P.cwd())
+    from config import get_workspace, resolve_workspace_path
+    try:
+        workspace = str(
+            resolve_workspace_path(req.workspace or get_workspace())
+        )
+    except PermissionError as e:
+        return {
+            "type": "text",
+            "message": f"❌ Workspace ditolak: {e}",
+            "code": "workspace_forbidden",
+        }
+    except (ValueError, OSError, RuntimeError) as e:
+        return {
+            "type": "text",
+            "message": f"❌ Workspace tidak valid: {e}",
+            "code": "invalid_workspace",
+        }
     try:
         from config import LLM_MODEL, DEFAULT_MODEL
         _default_model = LLM_MODEL or DEFAULT_MODEL or ""
@@ -1847,7 +1955,21 @@ async def handle_command(req: CommandReq):
         if not args:
             return {"type": "text", "message": "❌ Usage: `/add <path>`"}
         try:
-            fpath = _P(workspace) / args if not args.startswith('/') else _P(args)
+            workspace_root = _P(workspace).resolve()
+            candidate = _P(args).expanduser()
+            if not candidate.is_absolute():
+                candidate = workspace_root / candidate
+            fpath = candidate.resolve()
+
+            try:
+                fpath.relative_to(workspace_root)
+            except ValueError:
+                return {
+                    "type": "text",
+                    "message": "❌ Path /add harus berada di dalam workspace.",
+                    "code": "workspace_forbidden",
+                }
+
             if not fpath.is_file():
                 return {"type": "text", "message": f"❌ File tidak ditemukan: {args}"}
             content = fpath.read_text(errors='replace')[:5000]
@@ -1904,7 +2026,7 @@ async def handle_command(req: CommandReq):
             wp = _P(workspace)
             env = wp / ".env.example"
             if not env.exists():
-                env.write_text(f"LLM_URL=http://localhost:20128/v1/chat/completions\nLLM_API_KEY=your-key\nASTRIX_WORKSPACE={workspace}\n")
+                env.write_text(f"LLM_URL=http://localhost:20128/v1/chat/completions\nLLM_API_KEY=your-key\n")
             gi = wp / ".gitignore"
             if not gi.exists():
                 gi.write_text("venv/\n__pycache__/\n*.pyc\n.env\nlogs/\n")
@@ -2029,4 +2151,6 @@ async def api_get_stats():
 
 # ============ END RETENTION API ============
 
-uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info", ws="websockets")
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info", ws="websockets")

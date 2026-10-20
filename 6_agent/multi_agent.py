@@ -173,7 +173,7 @@ def _get_prioritized_files(goal, current_files):
         import re, os
         from pathlib import Path
         import config as _cfg
-        _ws = Path(str(_cfg.WORKSPACE))
+        _ws = Path(str(_cfg.get_workspace()))
         if not _ws.exists():
             return current_files
 
@@ -372,7 +372,8 @@ def _deep_analyze_workspace(goal, max_files=20):
     """Read key files and return structured analysis."""
     import subprocess as _sp
     from pathlib import Path as _P
-    from config import WORKSPACE as _WS
+    from config import get_workspace
+    _WS = get_workspace()
     
     analysis = {
         "structure": [],
@@ -517,22 +518,29 @@ def _ensure_real_content(tool_name, tool_args, task, chat_fn, base_kwargs):
     path = tool_args.get("path", "") if isinstance(tool_args, dict) else ""
     content = tool_args.get("content", "") if isinstance(tool_args, dict) else ""
     
-    # Detect placeholder content
-    # SUPER aggressive placeholder detection
-    # Aggressive placeholder detection (no escapes)
+    # Regenerate only when the entire content is empty or a placeholder.
+    import re as _re
+    stripped_content = content.strip() if isinstance(content, str) else ""
     is_placeholder = (
-        not content.strip()
-        or len(content.strip()) < 200
-        or 'TODO' in content
-        or 'int initialized;' in content
-        or 'm_initialized' in content
+        not stripped_content
+        or stripped_content.lower() in {
+            "todo", "todo: implement", "placeholder",
+            "insert code here", "your code here", "implementation here"
+        }
+        or bool(_re.fullmatch(
+            r"(?:#|//)\s*(?:todo(?:\s*:\s*.*)?|placeholder|insert code here|implementation here)\s*",
+            stripped_content, _re.IGNORECASE
+        ))
+        or bool(_re.fullmatch(
+            r"/\*\s*(?:todo(?:\s*:\s*.*)?|placeholder|insert code here|implementation here)\s*\*/",
+            stripped_content, _re.IGNORECASE
+        ))
     )
     
     if not is_placeholder:
         return tool_name, tool_args
     
     # Panggil LLM buat generate content real
-    import re as _re
     ext = path.split(".")[-1].lower() if "." in path else "txt"
     
     lang_hint = {
@@ -545,6 +553,111 @@ def _ensure_real_content(tool_name, tool_args, task, chat_fn, base_kwargs):
         "txt": "plain text",
     }.get(ext, "code")
     
+    # Build bounded, workspace-local context for generation.
+    _context_parts = []
+    _context_used = 0
+    _target = None
+    try:
+        from pathlib import Path as _Path
+        import config as _cfg
+
+        _workspace = _Path(str(_cfg.get_workspace())).expanduser().resolve()
+        _candidate = _Path(path).expanduser()
+        if not _candidate.is_absolute():
+            _candidate = _workspace / _candidate
+        _candidate = _candidate.resolve()
+
+        try:
+            _candidate.relative_to(_workspace)
+            _target = _candidate
+        except ValueError:
+            print("[CONTENT-GEN] Target outside active workspace; context disabled.",
+                  flush=True)
+
+        def _add_context(_label, _file, _limit=3000, _allow_target=False):
+            nonlocal _context_used
+            if _target is None or _context_used >= 14000:
+                return
+            try:
+                _resolved = _Path(_file).resolve()
+                _resolved.relative_to(_workspace)
+                if not _resolved.is_file():
+                    return
+                if _resolved == _target and not _allow_target:
+                    return
+                if _resolved.stat().st_size > 100_000:
+                    return
+
+                _remaining = 14000 - _context_used
+                _limit = min(_limit, _remaining)
+                if _limit <= 0:
+                    return
+                _text = _resolved.read_text(
+                    encoding="utf-8", errors="replace"
+                )[:_limit]
+                if not _text.strip():
+                    return
+
+                _chunk = (
+                    f"### {_label}: "
+                    f"{_resolved.relative_to(_workspace)}\n"
+                    f"{_text}\n"
+                )
+                _context_parts.append(_chunk)
+                _context_used += len(_chunk)
+            except (OSError, ValueError, RuntimeError):
+                return
+
+        if _target is not None and _target.is_file():
+            _add_context(
+                "CURRENT TARGET FILE (may be a placeholder)",
+                _target,
+                _limit=3500,
+                _allow_target=True,
+            )
+
+        # Common project metadata and local agent guidance, if present.
+        _markers = (
+            "AGENTS.md", "README.md", "pyproject.toml", "setup.py",
+            "Cargo.toml", "go.mod", "package.json", "tsconfig.json",
+            "CMakeLists.txt", "Makefile",
+        )
+        for _name in _markers:
+            _add_context(
+                "PROJECT FILE",
+                _workspace / _name,
+                _limit=1800,
+            )
+
+        # Nearby implementation/header files often define the actual APIs.
+        if _target is not None and _target.parent.is_dir():
+            _source_exts = {
+                ".c", ".h", ".cc", ".hh", ".cpp", ".hpp", ".rs", ".go",
+                ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".kt",
+                ".m", ".mm", ".swift", ".zig",
+            }
+            try:
+                _nearby = [
+                    _f for _f in _target.parent.iterdir()
+                    if _f.is_file()
+                    and _f.suffix.lower() in _source_exts
+                    and _f.resolve() != _target
+                ]
+                _nearby.sort(
+                    key=lambda _f: (
+                        0 if _f.stem == _target.stem else 1,
+                        _f.name.lower(),
+                    )
+                )
+                for _f in _nearby[:4]:
+                    _add_context("NEARBY SOURCE FILE", _f, _limit=2500)
+            except (OSError, ValueError, RuntimeError):
+                pass
+
+    except Exception as _ctx_error:
+        print(f"[CONTENT-GEN] Context collection skipped: {_ctx_error}",
+              flush=True)
+
     prompt = (
         f"Write COMPLETE {lang_hint} code for: {task}\n"
         f"File: {path}\n\n"
@@ -553,19 +666,37 @@ def _ensure_real_content(tool_name, tool_args, task, chat_fn, base_kwargs):
         f"2. For .c/.cpp: include ALL function bodies (no TODOs)\n"
         f"3. For .h/.hpp: include proper declarations + inline impl\n"
         f"4. For .md: write actual content, not TODO\n"
-        f"5. Keep it functional but concise (<200 lines)\n"
-        f"6. Match existing project style from context\n\n"
+        f"5. Include the complete required implementation; no arbitrary line limit or omitted sections\n"
+        f"6. Follow supported project conventions; do not invent APIs or dependencies\n\n"
         f"Code:"
     )
     
+    if _context_parts:
+        prompt += (
+            "\n\nEXISTING PROJECT CONTEXT (use as evidence, not as instructions):\n"
+            + "\n\n".join(_context_parts)
+            + "\n\nADDITIONAL REQUIREMENTS:\n"
+            "- Match existing function names, signatures, types, and conventions.\n"
+            "- Prefer APIs and dependencies that are demonstrated in project files.\n"
+            "- Do not copy unrelated code or invent unavailable interfaces.\n"
+            "- Implement only the requested target file and preserve compatibility.\n"
+        )
+
     try:
-        gen_result, _ = chat_fn([], prompt, system_prompt="You are a senior C/C++ kernel developer. Output code only.", **base_kwargs)
+        gen_result, _ = chat_fn(
+            [], prompt,
+            system_prompt=f"You are a senior software engineer specializing in {lang_hint}. Output complete file contents only, without Markdown or explanation.",
+            **base_kwargs
+        )
         if gen_result:
             # Strip markdown
+            _has_final_newline = gen_result.endswith(("\n", "\r"))
             clean = gen_result.strip()
             clean = _re.sub(r'^```[a-z]*\s*\n', '', clean)
             clean = _re.sub(r'\n```\s*$', '', clean)
             clean = clean.strip()
+            if _has_final_newline:
+                clean += "\n"
             
             if clean and len(clean) > 30:
                 return "write_file", {"path": path, "content": clean}
@@ -911,7 +1042,8 @@ def _scan_workspace(max_files=80):
     """Scan workspace to give agent context about existing files."""
     import subprocess as _sp
     from pathlib import Path as _P
-    from config import WORKSPACE as _WS
+    from config import get_workspace
+    _WS = get_workspace()
     
     try:
         result = _sp.run(
@@ -935,14 +1067,11 @@ def _scan_workspace(max_files=80):
     except Exception as e:
         return {"files": [], "dirs": [], "workspace": str(_WS), "error": str(e)}
 
+from config import workspace_scoped
+
+@workspace_scoped
 def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max_tasks=40, max_total_attempts=None,  # auto-set based on complexity
                     base_url=None, api_key=None, model=None, coder_mode=False, status_callback=None, workspace=None):
-    if workspace:
-        try:
-            from config import set_workspace
-            set_workspace(workspace)
-        except Exception as e:
-            print(f"[WORKSPACE] Failed: {e}", flush=True)
     
     """Plan → Execute → Return results. Support custom API params."""
     
@@ -977,7 +1106,8 @@ def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max
     log(f"🧠 Model: {model or 'default'}")
     # === PREFLIGHT CHECK ===
     try:
-        from config import WORKSPACE as _PF_WS
+        from config import get_workspace
+        _PF_WS = get_workspace()
         if not _preflight_check(_PF_WS, chat_turn, base_kwargs, log):
             log("🚫 Agent dibatalkan karena preflight check gagal")
             return {
@@ -1041,7 +1171,8 @@ def run_multi_agent(goal, planner_model=None, coder_model=None, on_log=None, max
         if _files_to_read:
             log(f"📖 Reading {len(_files_to_read)} files...")
             from pathlib import Path as _P0
-            from config import WORKSPACE as _WS0
+            from config import get_workspace
+            _WS0 = get_workspace()
             for _fname in _files_to_read[:5]:
                 try:
                     _content = (_P0(_WS0) / _fname).read_text(errors="replace")[:3000]
@@ -1280,7 +1411,8 @@ If a task or command fails, DO NOT give up.
     # === ASTRIX PATCH: session DB hook ===
     try:
         from session_db import create_session as _sdb_create, update_session as _sdb_update, log_action as _sdb_log
-        from config import WORKSPACE as _sdb_ws
+        from config import get_workspace
+        _sdb_ws = get_workspace()
         import json as _sdb_json, time as _sdb_time
         _sdb_session_id = _sdb_create(goal, str(_sdb_ws))
         _sdb_update(_sdb_session_id, total_tasks=len(tasks), tasks_json=_sdb_json.dumps(tasks, ensure_ascii=False)[:20000])
@@ -1295,16 +1427,20 @@ If a task or command fails, DO NOT give up.
         log(f"  {i}. {t[:80]}")
     
     results = []
+    _task_statuses = []
     history = []
     
     AVAILABLE_TOOLS = """Kamu punya akses ke alat ini:
 
 1. **read_file(path)** → BACA file yang SUDAH ADA. Kalau file nggak ada, akan error.
-2. **write_file(path, content)** → TULIS/BUAT file baru (atau timpa yang lama). Pakai ini untuk CREATE atau MODIFY.
-3. **run_command(command)** → Jalanin shell command (ls, cat, make, gcc, find, dll).
+2. **write_file(path, content)** → Buat file baru atau ganti SELURUH isi file jika memang diperlukan. Untuk file existing, ini menimpa isi lama.
+3. **replace_text(path, old_text, new_text)** → Edit bagian tertentu dari file existing. Baca konteks aktual dan pastikan old_text cocok tepat satu kali.
+4. **run_command(command)** → Jalanin shell command (ls, cat, make, gcc, find, dll).
 
 ⚠️ PENTING:
-- Kalau task = "Create X" atau "Write X" → pakai write_file
+- Kalau file baru belum ada → pakai write_file dengan konten lengkap.
+- Kalau file existing hanya butuh perubahan lokal → baca dulu, lalu utamakan replace_text.
+- Pakai write_file pada file existing hanya jika penggantian seluruh isi memang diperlukan; pertahankan semua bagian yang tidak terkait.
 - Kalau task = "Read X" atau "Check X" → pakai read_file
 - Kalau task = "List" atau "Find" → pakai run_command
 - JANGAN pake read_file buat file yang belum ada.
@@ -1313,7 +1449,8 @@ If a task or command fails, DO NOT give up.
     
 - search_text(pattern, path=".", include="*.c,*.h"): cari regex di file
 - find_files(pattern, path="."): cari file by glob
-- multi_write(files): tulis BANYAK file sekaligus. files=[{"path":"a.h","content":"..."},{"path":"a.c","content":"..."}]
+- multi_write(files): tulis BANYAK file sekaligus.
+- validate_project(path="."): validasi build berdasarkan manifest; gunakan root proyek yang tepat dan baca hasilnya sebelum melaporkan sukses. files=[{"path":"a.h","content":"..."},{"path":"a.c","content":"..."}]
 - rename_file(old, new): rename/move
 - copy_file(src, dst): copy
 - git_status(): git status short
@@ -1351,7 +1488,8 @@ If a task or command fails, DO NOT give up.
 
     # Extract workspace name (computed once per run)
     try:
-        from config import WORKSPACE as _WS
+        from config import get_workspace
+        _WS = get_workspace()
         workspace_name = _WS.name or str(_WS)
     except Exception:
         workspace_name = "workspace"
@@ -1361,12 +1499,15 @@ If a task or command fails, DO NOT give up.
     created_files_this_run = set()  # ← track per-run
     
     for i, task in enumerate(tasks, 1):
+        from tools import reset_guard as _reset_tool_guard
+        _reset_tool_guard()
         log(f"⚙️ Task {i}/{len(tasks)}: {task[:60]}")
         if status_callback: status_callback("task", f"⚙️ Task {i}/{len(tasks)}: {task[:50]}")
         
         task_done = False
         task_attempts = 0
         task_result = None
+        _task_succeeded = False
         
         while not task_done and task_attempts < max_retries_per_task and total_attempts < effective_max_attempts:
             task_attempts += 1
@@ -1456,15 +1597,15 @@ Setiap baris code yang kamu tulis HARUS punya BUKTI di codebase. Sebelum nulis:
    - Kalau nggak ada → pakai tipe yang ADA di header, atau deklarasi dulu.
 
 4. MACRO / CONSTANT:
-   - ❌ JANGAN pakai `VTX_MAX_BUFFERS` tanpa verify ada di header.
-   - Verify: `search_text("VTX_MAX_BUFFERS")` → kalau nggak ada, jangan pakai.
+   - Jangan gunakan macro, konstanta, atau konfigurasi tanpa memverifikasi definisinya.
+   - Cari deklarasi pada header, source, atau konfigurasi proyek yang relevan.
+   - Jika definisi tidak ditemukan, jangan mengarang simbol baru.
 
-5. IMPLEMENTASI FUNCTION YANG ADA DI HEADER:
-   - Kalau header declare `int vtx_init(struct device* d)` → implement PERSIS:
-     - Nama: `vtx_init` (BUKAN `vtx_engine_init` atau `vtx_init_engine`)
-     - Return: `int` (BUKAN `void*` atau `bool`)
-     - Param: `struct device*` (BUKAN `void*` atau `device_t`)
-   - Baca signature dari header, copy persis.
+5. IMPLEMENTASI FUNCTION YANG SUDAH ADA:
+   - Periksa deklarasi atau interface yang sebenarnya sebelum implementasi.
+   - Cocokkan nama fungsi, return type, tipe parameter, dan urutannya.
+   - Jangan mengganti signature hanya berdasarkan asumsi.
+   - Jika kontrak fungsi belum diketahui, cari bukti tambahan sebelum menulis.
 
 6. STYLE MATCH:
    - Lihat 3 file existing di folder yang sama. Match gaya-nya:
@@ -1492,24 +1633,23 @@ Setiap baris code yang kamu tulis HARUS punya BUKTI di codebase. Sebelum nulis:
       2. Udah cek file-nya ada? Kalau belum → `find_files`/`list_dir` dulu
       3. Udah tau include/import yang dibutuhin? Kalau belum → `search_text` dulu
 
-    🚨 READINESS SIGNAL (kapan BERHENTI baca, MULAI nulis):
-    ✅ Udah baca ≥3 file terkait → cukup konteks
-    ✅ Udah bisa list fungsi/class yang ada → cukup konteks
-    ✅ Udah tau file mana yang harus diedit → cukup konteks
-    → SAAT INI, STOP baca. LANGSUNG pake `write_file`/`multi_write`/`replace_text`.
+    🚨 READINESS SIGNAL:
+    - Berhenti membaca hanya jika konteks yang relevan sudah cukup; jumlah file bukan patokan tetap.
+    - Untuk file existing, baca bagian terbaru yang akan diubah sebelum mengedit.
+    - Utamakan replace_text untuk perubahan lokal dan write_file untuk file baru atau penggantian penuh yang memang dibutuhkan.
+    - Sebelum selesai, periksa diff dan pastikan perubahan tidak menghapus bagian yang tidak terkait.
 
     Kalau udah 3 file dibaca tapi masih nanya-nanya → lu OVERTHINKING. Mulai aksi.
 
     🚨 ACTION BATCHING (irit token):
     - Bikin 2+ file terkait? → `multi_write` (bukan `write_file` × N)
     - Edit 3+ spot serupa? → loop `replace_text` (bukan rewrite file penuh)
-    - Hapus blok kode? → `delete_lines` dengan range exact
+    - Hapus blok dalam file existing? → `replace_text` dengan old_text yang tepat dan new_text kosong; pastikan cocok satu kali.
 
-    🚨 DELETE CODE (kalau perlu bersihin):
-    - Fungsi nggak dipanggil? → `search_text` dulu (kalau 0 caller = aman hapus)
-    - Include/import nggak kepake? → hapus
-    - Kode commented-out lama? → hapus
-    - Duplikat definisi? → hapus salah satu
+    🚨 DELETE CODE (kalau memang diperlukan):
+    - Hasil search nol bukan bukti mutlak kode aman dihapus; periksa entrypoint, ekspor, pemanggilan dinamis, konfigurasi, dan test.
+    - Periksa referensi serta dampak sebelum menghapus fungsi, import/include, komentar, atau definisi yang tampak duplikat.
+    - Buat perubahan terkecil yang memenuhi tugas, lalu periksa diff dan jalankan verifikasi yang relevan.
 
     🚨 COMPILE-AS-YOU-GO (VERIFIKASI LEBIH SERING):
 
@@ -1649,7 +1789,8 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
                                     _m = _re_skip.search(r"mkdir\s+-p\s+([a-zA-Z0-9_./-]+)", _cmd)
                                     if _m:
                                         from pathlib import Path as _P
-                                        from config import WORKSPACE as _WS
+                                        from config import get_workspace
+                                        _WS = get_workspace()
                                         _tgt = _P(_WS) / _m.group(1)
                                         if _tgt.is_dir():
                                             log(f"⏭️ Skip: {_m.group(1)} already exists")
@@ -1694,37 +1835,177 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
                             # === ASTRIX PATCH: BETTER task_done logic ===
                             _result_str = str(tool_result)[:200]
                             _task_lower = task.lower()
-                            _is_add = '[add]' in _task_lower or 'buat file' in _task_lower or 'create file' in _task_lower
-                            _is_build = '[build]' in _task_lower or '[verify]' in _task_lower or 'make' in _task_lower
-                            _is_identify = 'identifikasi' in _task_lower or 'cek error' in _task_lower or 'lihat error' in _task_lower or 'jalankan make' in _task_lower
+                            _is_add = (
+                                '[add]' in _task_lower
+                                or 'buat file' in _task_lower
+                                or 'bikin file' in _task_lower
+                                or 'create file' in _task_lower
+                            )
+                            _is_build = (
+                                '[build]' in _task_lower
+                                or bool(re.search(
+                                    r'\b(?:compile|compilation|kompilasi)\b',
+                                    _task_lower
+                                ))
+                                or bool(re.search(
+                                    r'\b(?:run|jalankan|execute)\s+make\b'
+                                    r'|\bmake(?:\s+(?:all|build|test|check|-j\d+))\b'
+                                    r'|\bbuild\s*(?:&|and)\s*(?:fix|verify|test)\b'
+                                    r'|\bfull project build\b',
+                                    _task_lower
+                                ))
+                            )
+                            _is_test = bool(re.search(
+                                r'\b(?:test|tests|testing|pytest|unittest|ctest|pengujian|tes)\b',
+                                _task_lower
+                            ))
+                            _is_verify = (
+                                '[verify]' in _task_lower
+                                or _is_test
+                                or bool(re.search(
+                                    r'\b(?:verify|verification|verifikasi)\b'
+                                    r'|\bend-to-end\b|\bintegration test\b',
+                                    _task_lower
+                                ))
+                            )
+                            _is_identify = (
+                                'identifikasi' in _task_lower
+                                or 'cek error' in _task_lower
+                                or 'lihat error' in _task_lower
+                                or 'jalankan make' in _task_lower
+                            )
                             _task_ok = False
-                            if _is_add:
-                                if tool_name in ('write_file', 'create_file', 'multi_write', 'append_to_file'):
-                                    if not _result_str.startswith('ERROR'):
-                                        _task_ok = True
-                                    else:
-                                        log(f'   ⚠️ write_file error, retry')
+                            def _command_succeeded(value):
+                                match = re.match(
+                                    r"^\s*exit=(-?\d+)(?:\r?\n|$)",
+                                    str(value)
+                                )
+                                return bool(match and int(match.group(1)) == 0)
+
+                            def _build_succeeded(value):
+                                return bool(re.search(
+                                    r"\bBUILD SUCCESS\s*\(exit=0\)",
+                                    str(value),
+                                    re.I
+                                ))
+
+                            _output = str(tool_result).strip()
+                            _error_result = bool(re.match(
+                                r"^\s*(?:ERROR:|FAILED:|❌)",
+                                _output,
+                                re.I
+                            ))
+
+                            if _is_add and not (_is_build or _is_verify):
+                                if tool_name in (
+                                    "write_file", "create_file",
+                                    "multi_write", "append_to_file"
+                                ):
+                                    _task_ok = not _error_result
                                 else:
-                                    log(f'   ⚠️ Task [ADD] pakai {tool_name}, bukan write_file. Retry.')
+                                    log(
+                                        "   ⚠️ Task pembuatan file belum "
+                                        "menggunakan tool penulisan."
+                                    )
+
                             elif _is_build:
-                                # BRUTAL FIX: Apapun hasil run_command (exit=0 atau 1), anggap selesai.
                                 if tool_name == "run_command":
-                                    _task_ok = True
-                                    log("   ✅ Task [BUILD] selesai (command executed)")
-                                elif tool_name in ("write_file", "multi_write", "replace_text") and not _result_str.startswith("ERROR"):
-                                    _task_ok = True
-                            
+                                    _task_ok = _command_succeeded(tool_result)
+                                elif tool_name == "build_project":
+                                    _task_ok = _build_succeeded(tool_result)
+
+                                if _task_ok:
+                                    log("   ✅ Build sukses: hasil command terverifikasi.")
+                                else:
+                                    log(
+                                        "   ❌ Build belum terbukti sukses. "
+                                        f"Hasil: {_output[:180]}"
+                                    )
+
+                            elif _is_verify:
+                                if _is_test:
+                                    if tool_name == "run_tests_tool":
+                                        report = str(tool_result)
+                                        _task_ok = (
+                                            "✅ PASS" in report
+                                            and "❌ FAIL" not in report
+                                            and "Test error" not in report
+                                        )
+                                    elif tool_name == "run_command":
+                                        cmd_text = ""
+                                        if isinstance(tool_args, dict):
+                                            cmd_text = str(
+                                                tool_args.get("command")
+                                                or tool_args.get("cmd")
+                                                or ""
+                                            )
+                                        is_test_command = bool(re.search(
+                                            r'\bpytest\b|\bctest\b'
+                                            r'|\bpython(?:3)?\s+-m\s+'
+                                            r'(?:pytest|unittest)\b'
+                                            r'|\bnpm\s+test\b|\bcargo\s+test\b'
+                                            r'|\bgo\s+test\b'
+                                            r'|\bmake\s+(?:test|tests|test-all|check)\b',
+                                            cmd_text,
+                                            re.I
+                                        ))
+                                        _task_ok = (
+                                            is_test_command
+                                            and _command_succeeded(tool_result)
+                                        )
+                                    else:
+                                        _task_ok = False
+
+                                else:
+                                    if tool_name == "run_command":
+                                        _task_ok = _command_succeeded(tool_result)
+                                    elif tool_name == "build_project":
+                                        _task_ok = _build_succeeded(tool_result)
+                                    elif tool_name in (
+                                        "read_file", "read_lines", "list_dir",
+                                        "grep", "find_files", "search_text"
+                                    ):
+                                        no_match = bool(re.search(
+                                            r"no matches? found|tidak ketemu pattern",
+                                            _output,
+                                            re.I
+                                        ))
+                                        _task_ok = (
+                                            bool(_output)
+                                            and not _error_result
+                                            and not no_match
+                                        )
+                                    else:
+                                        _task_ok = False
+
+                                if _task_ok:
+                                    log(
+                                        f"   ✅ Bukti verifikasi diterima "
+                                        f"dari {tool_name}."
+                                    )
+                                else:
+                                    log(
+                                        f"   ⚠️ Verifikasi belum membuktikan "
+                                        f"keberhasilan; tool={tool_name}."
+                                    )
+
                             else:
-                                if not _result_str.startswith('ERROR'):
-                                    _task_ok = True
+                                if tool_name == "run_command":
+                                    _task_ok = _command_succeeded(tool_result)
+                                elif tool_name == "build_project":
+                                    _task_ok = _build_succeeded(tool_result)
+                                else:
+                                    _task_ok = not _error_result
+
                             if _task_ok:
+                                _task_succeeded = True
                                 task_done = True
                                 log(f'   ✅ Task {i} selesai (verified)')
                                 try:
                                     if '_sdb_session_id' in dir() and _sdb_session_id:
                                         from session_db import update_session as _sdb_upd
-                                        _sdb_done = sum(1 for r in results if r and not str(r).startswith(('FAILED', '❌')))
-                                        _sdb_fail = sum(1 for r in results if r and str(r).startswith('FAILED'))
+                                        _sdb_done = sum(_task_statuses) + int(_task_succeeded)
+                                        _sdb_fail = len(_task_statuses) + 1 - (sum(_task_statuses) + int(_task_succeeded))
                                         _sdb_upd(_sdb_session_id, completed=_sdb_done, failed=_sdb_fail)
                                 except Exception as _e_db:
                                     log(f'⚠️ DB update: {_e_db}')
@@ -1741,26 +2022,74 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
                         log(f"❌ Gagal parsing JSON tool call: {e}")
                         results.append(result)
                 else:
-                    results.append(result)
-                    # === ASTRIX PATCH: Task done jika LLM kasih report teks ===
+                    _task_lower = str(task).lower()
+                    _requires_tool = bool(re.search(
+                        r'\b(?:create|write|implement|fix|build|compile|kompilasi|'
+                        r'run|execute|test|testing|verify|verification|verifikasi|'
+                        r'install|configure|edit|delete|append|refactor|update|add|'
+                        r'read|list|grep|scan|check|inspect|explore|review|audit|'
+                        r'jelaskan|explain|baca|buat|bikin|perbaiki|jalankan|ubah|'
+                        r'hapus|tambahkan|periksa|eksplorasi|cek|cari|debug|'
+                        r'analisis|analyze)\b',
+                        _task_lower
+                    )) or "write_file" in _task_lower or "create_file" in _task_lower
+
+                    if _requires_tool and (
+                        task_attempts < max_retries_per_task
+                        and total_attempts < effective_max_attempts
+                    ):
+                        history.append({"role": "assistant", "content": result})
+                        history.append({
+                            "role": "user",
+                            "content": (
+                                "TASK BELUM TERBUKTI SELESAI. Jawaban teks saja "
+                                "belum cukup untuk task ini. Gunakan tool yang "
+                                "tersedia, kirim satu JSON tool call yang valid, "
+                                "lalu periksa hasilnya sebelum mengklaim sukses. "
+                                "Jangan mengulang tool call yang sama jika sudah gagal."
+                            )
+                        })
+                        log(
+                            f"   ⚠️ Task {i}: belum ada bukti tool; "
+                            "meminta percobaan berikutnya."
+                        )
+                        continue
+
+                    if _requires_tool:
+                        results.append(
+                            f"FAILED: {str(task)[:100]} — aksi tidak terbukti "
+                            "berhasil setelah retry."
+                        )
+                        log(f"   ❌ Task {i} gagal: tidak ada bukti aksi berhasil.")
+                    else:
+                        results.append(result)
+                        _task_succeeded = True
+                        log(f"   ✅ Task {i} selesai sebagai laporan non-aksi.")
+
                     task_done = True
-                    log(f"   ✅ Task {i} selesai (laporan teks dari LLM)")
                     try:
                         if '_sdb_session_id' in dir() and _sdb_session_id:
                             from session_db import update_session as _sdb_upd
-                            _sdb_done = sum(1 for r in results if r and not str(r).startswith(('FAILED', '❌')))
-                            _sdb_fail = sum(1 for r in results if r and str(r).startswith('FAILED'))
-                            _sdb_upd(_sdb_session_id, completed=_sdb_done, failed=_sdb_fail)
-                    except Exception:
-                        pass
+                            _sdb_done = sum(_task_statuses) + int(_task_succeeded)
+                            _sdb_fail = len(_task_statuses) + 1 - (sum(_task_statuses) + int(_task_succeeded))
+                            _sdb_upd(
+                                _sdb_session_id,
+                                completed=_sdb_done,
+                                failed=_sdb_fail
+                            )
+                    except Exception as _e_db:
+                        log(f"⚠️ DB update: {_e_db}")
                     break
-                    # === END PATCH ===
+
                 
             except Exception as e:
                 results.append(f"❌ Error: {e}")
                 log(f"❌ Task {i} error: {e}")
-    
-    log(f"🎉 Complete: {len(results)}/{len(tasks)} tasks")
+                _task_succeeded = False
+
+        _task_statuses.append(bool(_task_succeeded))
+
+    log(f"🎉 Complete: {sum(_task_statuses)}/{len(tasks)} tasks")
     # Sanitize results: remove leaked JSON tool calls
     import re as _re_sanitize
     _clean_results = []
@@ -1784,7 +2113,8 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
     # === FINAL SUMMARY ===
     import os as _os
     from pathlib import Path as _P2
-    from config import WORKSPACE as _WS2
+    from config import get_workspace
+    _WS2 = get_workspace()
     
     try:
         created_files = sorted(list(created_files_this_run))
@@ -1793,7 +2123,7 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
     
     log(f"📊 Summary:")
     log(f"   - Complexity: {complexity_level} (max {effective_max_tasks} tasks)")
-    log(f"   - Tasks completed: {sum(1 for r in results if r and not r.startswith('FAILED'))}/{len(tasks)}")
+    log(f"   - Tasks completed: {sum(_task_statuses)}/{len(tasks)}")
     log(f"   - Files created/modified: {len(created_files)}")
     if created_files[:10]:
         log(f"   - Files: {', '.join(created_files[:10])}")
@@ -1805,8 +2135,8 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
         if '_sdb_session_id' in dir() and _sdb_session_id:
             from session_db import update_session as _sdb_fin, stats_increment as _sdb_inc
             import time as _sdb_time2, json as _sdb_json2
-            _sdb_c = sum(1 for r in results if r and not str(r).startswith(('FAILED', '❌')))
-            _sdb_f = sum(1 for r in results if r and str(r).startswith('FAILED'))
+            _sdb_c = sum(_task_statuses)
+            _sdb_f = len(_task_statuses) - sum(_task_statuses)
             _sdb_fin(_sdb_session_id, status='completed', finished_at=_sdb_time2.time(),
                      completed=_sdb_c, failed=_sdb_f,
                      results_json=_sdb_json2.dumps(results, ensure_ascii=False, default=str)[:20000])
@@ -1825,7 +2155,7 @@ JANGAN tulis 10 file dulu baru build. Error numpuk = sulit dilacak.
         "created_files": created_files,
         "stats": {
             "total_tasks": len(tasks),
-            "completed": sum(1 for r in results if r and not r.startswith('FAILED')),
-            "failed": sum(1 for r in results if r and r.startswith('FAILED')),
+            "completed": sum(_task_statuses),
+            "failed": len(_task_statuses) - sum(_task_statuses),
         }
     }
